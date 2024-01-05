@@ -143,6 +143,9 @@ bool mmu_t::mmio_load(reg_t paddr, size_t len, uint8_t* bytes)
 
 bool mmu_t::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes)
 {
+  // write 4 to uart to kill program
+  if(*bytes == 0x4)
+    exit(0);
   return mmio(paddr, len, const_cast<uint8_t*>(bytes), STORE);
 }
 
