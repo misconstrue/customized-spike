@@ -28,23 +28,27 @@ static void commit_log_print_value(FILE *log_file, int width, const void *data)
 
   switch (width) {
     case 8:
-      fprintf(log_file, "0x%02" PRIx8, *(const uint8_t *)data);
+      // fprintf(log_file, "0x%02" PRIx8, *(const uint8_t *)data);
+      fprintf(log_file, "%02" PRIx8, *(const uint8_t *)data);
       break;
     case 16:
-      fprintf(log_file, "0x%04" PRIx16, *(const uint16_t *)data);
+      // fprintf(log_file, "0x%04" PRIx16, *(const uint16_t *)data);
+      fprintf(log_file, "%04" PRIx16, *(const uint16_t *)data);
       break;
     case 32:
-      fprintf(log_file, "0x%08" PRIx32, *(const uint32_t *)data);
+      // fprintf(log_file, "0x%08" PRIx32, *(const uint32_t *)data);
+      fprintf(log_file, "%08" PRIx32, *(const uint32_t *)data);
       break;
     case 64:
-      fprintf(log_file, "0x%016" PRIx64, *(const uint64_t *)data);
+      // fprintf(log_file, "0x%016" PRIx64, *(const uint64_t *)data);
+      fprintf(log_file, "%016" PRIx64, *(const uint64_t *)data);
       break;
     default:
       // max lengh of vector
       if (((width - 1) & width) == 0) {
         const uint64_t *arr = (const uint64_t *)data;
 
-        fprintf(log_file, "0x");
+        // fprintf(log_file, "0x");
         for (int idx = width / 64 - 1; idx >= 0; --idx) {
           fprintf(log_file, "%016" PRIx64, arr[idx]);
         }
@@ -63,7 +67,6 @@ static void commit_log_print_value(FILE *log_file, int width, uint64_t val)
 static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
 {
   FILE *log_file = p->get_log_file();
-
   auto& reg = p->get_state()->log_reg_write;
   auto& load = p->get_state()->log_mem_read;
   auto& store = p->get_state()->log_mem_write;
@@ -72,13 +75,14 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
   int flen = p->get_state()->last_inst_flen;
 
   // print core id on all lines so it is easy to grep
-  fprintf(log_file, "core%4" PRId32 ": ", p->get_id());
+  // fprintf(log_file, "core%4" PRId32 ": ", p->get_id());
 
-  fprintf(log_file, "%1d ", priv);
-  commit_log_print_value(log_file, xlen, pc);
-  fprintf(log_file, " (");
-  commit_log_print_value(log_file, insn.length() * 8, insn.bits());
-  fprintf(log_file, ")");
+  // fprintf(log_file, "%1d ", priv);
+  // commit_log_print_value(log_file, xlen, pc);
+  // fprintf(log_file, " (");
+  // commit_log_print_value(log_file, insn.length() * 8, insn.bits());
+  // fprintf(log_file, ")");
+
   bool show_vec = false;
 
   for (auto item : reg) {
@@ -117,7 +121,7 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
     }
 
     if (!show_vec && (is_vreg || is_vec)) {
-        fprintf(log_file, " e%ld %s%ld l%ld",
+        fprintf(log_file, "    R e%ld %s%ld l%ld",
                 (long)p->VU.vsew,
                 p->VU.vflmul < 1 ? "mf" : "m",
                 p->VU.vflmul < 1 ? (long)(1 / p->VU.vflmul) : (long)p->VU.vflmul,
@@ -127,28 +131,33 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
 
     if (!is_vec) {
       if (prefix == 'c')
-        fprintf(log_file, " c%d_%s ", rd, csr_name(rd));
+        fprintf(log_file, "    R c%d_%s ", rd, csr_name(rd));
       else
-        fprintf(log_file, " %c%-2d ", prefix, rd);
+        fprintf(log_file, "    R %c%-2d ", prefix, rd);
       if (is_vreg)
         commit_log_print_value(log_file, size, &p->VU.elt<uint8_t>(rd, 0));
       else
         commit_log_print_value(log_file, size, item.second.v);
     }
   }
-
+  if (reg.size())
+    fprintf(log_file, "\n");
+  
   for (auto item : load) {
-    fprintf(log_file, " mem ");
+    fprintf(log_file, "    MEM MR%d ",std::get<2>(item) << 3);
     commit_log_print_value(log_file, xlen, std::get<0>(item));
   }
-
+  if (load.size())
+    fprintf(log_file, "\n");
+  
   for (auto item : store) {
-    fprintf(log_file, " mem ");
+    fprintf(log_file, "    MEM MW%d ", std::get<2>(item) << 3);
     commit_log_print_value(log_file, xlen, std::get<0>(item));
     fprintf(log_file, " ");
     commit_log_print_value(log_file, std::get<2>(item) << 3, std::get<1>(item));
   }
-  fprintf(log_file, "\n");
+  if (store.size())
+    fprintf(log_file, "\n");
 }
 
 inline void processor_t::update_histogram(reg_t pc)

@@ -974,16 +974,21 @@ void processor_t::disasm(insn_t insn)
         << ": >>>>  " << sym << std::endl;
     }
 
-    if (executions != 1) {
-      s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
-        << ": Executed " << executions << " times" << std::endl;
-    }
+    // delete repeation print
+    // if (executions != 1) {
+    //   s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    //     << ": Executed " << executions << " times" << std::endl;
+    // }
 
     unsigned max_xlen = isa->get_max_xlen();
 
     s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
-      << std::hex << ": 0x" << std::setfill('0') << std::setw(max_xlen / 4)
-      << zext(state.pc, max_xlen) << " (0x" << std::setw(8) << bits << ") "
+      // << std::hex << ": 0x" << std::setfill('0') << std::setw(max_xlen / 4)
+      // << std::hex << ":" << std::setfill('0') << std::setw(max_xlen / 4)
+      << std::dec << "(" << 0 << ")"
+      << " " << this->get_privilege_string() << "-MODE "
+      // << zext(state.pc, max_xlen) << " (" << std::setw(8) << bits << ") "
+      << std::hex << zext(state.pc, max_xlen) << " (" << std::setw(8) << bits << ") "
       << disassembler->disassemble(insn) << std::endl;
 
     debug_output_log(&s);
