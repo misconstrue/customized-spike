@@ -988,7 +988,7 @@ void processor_t::disasm(insn_t insn)
       << std::dec << "(" << 0 << ")"
       << " " << this->get_privilege_string() << "-MODE "
       // << zext(state.pc, max_xlen) << " (" << std::setw(8) << bits << ") "
-      << std::hex << zext(state.pc, max_xlen) << " (" << std::setw(8) << bits << ") "
+      << std::hex << zext(state.pc, max_xlen) << " " << std::setfill('0') << std::setw(8) << bits << " " 
       << disassembler->disassemble(insn) << std::endl;
 
     debug_output_log(&s);
