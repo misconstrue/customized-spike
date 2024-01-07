@@ -963,6 +963,7 @@ const char* processor_t::get_symbol(uint64_t addr)
 
 void processor_t::disasm(insn_t insn)
 {
+  static unsigned long inst_cnt = 0;
   uint64_t bits = insn.bits();
   if (last_pc != state.pc || last_bits != bits) {
     std::stringstream s;  // first put everything in a string, later send it to output
@@ -985,7 +986,7 @@ void processor_t::disasm(insn_t insn)
     s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
       // << std::hex << ": 0x" << std::setfill('0') << std::setw(max_xlen / 4)
       // << std::hex << ":" << std::setfill('0') << std::setw(max_xlen / 4)
-      << std::dec << "(" << 0 << ")"
+      << std::dec << "(" << inst_cnt++ << ")"
       << " " << this->get_privilege_string() << "-MODE "
       // << zext(state.pc, max_xlen) << " (" << std::setw(8) << bits << ") "
       << std::hex << zext(state.pc, max_xlen) << " " << std::setfill('0') << std::setw(8) << bits << " " 

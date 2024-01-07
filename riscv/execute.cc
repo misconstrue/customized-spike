@@ -64,6 +64,7 @@ static void commit_log_print_value(FILE *log_file, int width, uint64_t val)
   commit_log_print_value(log_file, width, &val);
 }
 
+extern reg_t g_paddr;
 static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
 {
   FILE *log_file = p->get_log_file();
@@ -146,6 +147,8 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
   for (auto item : load) {
     fprintf(log_file, "    MEM MR%d ",std::get<2>(item));
     commit_log_print_value(log_file, xlen, std::get<0>(item));
+    fprintf(log_file, ":");
+    commit_log_print_value(log_file, xlen, g_paddr);
   }
   if (load.size())
     fprintf(log_file, "\n");
@@ -153,6 +156,8 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
   for (auto item : store) {
     fprintf(log_file, "    MEM MW%d ", std::get<2>(item));
     commit_log_print_value(log_file, xlen, std::get<0>(item));
+    fprintf(log_file, ":");
+    commit_log_print_value(log_file, xlen, g_paddr);
     fprintf(log_file, " ");
     commit_log_print_value(log_file, std::get<2>(item) << 3, std::get<1>(item));
   }
