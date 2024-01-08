@@ -835,13 +835,14 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
   if (debug) {
     std::stringstream s; // first put everything in a string, later send it to output
     // s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
-    s << "EXCEPTION core" << std::dec << std::setfill(' ') << std::setw(3) << id
-      << ": exception " << t.name() << ", epc 0x"
-      << std::hex << std::setfill('0') << std::setw(max_xlen/4) << zext(epc, max_xlen) << std::endl;
+    s << "Exception core" << std::dec << std::setfill(' ') << std::setw(3) << id
+      << ": " << t.name() << std::endl;
+    s << "         " 
+      << "  epc 0x" << std::hex << std::setfill('0') << std::setw(max_xlen/4) << zext(epc, max_xlen) << std::endl;
     if (t.has_tval())
       //  s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
-       s << "    " << std::dec << std::setfill(' ') << std::setw(3) << id
-         << ":           tval 0x" << std::hex << std::setfill('0') << std::setw(max_xlen / 4)
+       s << "         " 
+         << "  tval 0x" << std::hex << std::setfill('0') << std::setw(max_xlen / 4)
          << zext(t.get_tval(), max_xlen) << std::endl;
     debug_output_log(&s);
   }
