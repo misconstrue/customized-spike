@@ -834,11 +834,13 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
 
   if (debug) {
     std::stringstream s; // first put everything in a string, later send it to output
-    s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    // s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    s << "EXCEPTION core" << std::dec << std::setfill(' ') << std::setw(3) << id
       << ": exception " << t.name() << ", epc 0x"
       << std::hex << std::setfill('0') << std::setw(max_xlen/4) << zext(epc, max_xlen) << std::endl;
     if (t.has_tval())
-       s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+      //  s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+       s << "    " << std::dec << std::setfill(' ') << std::setw(3) << id
          << ":           tval 0x" << std::hex << std::setfill('0') << std::setw(max_xlen / 4)
          << zext(t.get_tval(), max_xlen) << std::endl;
     debug_output_log(&s);
@@ -937,7 +939,8 @@ void processor_t::take_trigger_action(triggers::action_t action, reg_t breakpoin
 {
   if (debug) {
     std::stringstream s; // first put everything in a string, later send it to output
-    s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    // s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    s << "Action core" << std::dec << std::setfill(' ') << std::setw(3) << id
       << ": trigger action " << (int)action << std::endl;
     debug_output_log(&s);
   }
@@ -971,7 +974,8 @@ void processor_t::disasm(insn_t insn)
     const char* sym = get_symbol(state.pc);
     if (sym != nullptr)
     {
-      s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+      // s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+      s << "Symbol core" << std::dec << std::setfill(' ') << std::setw(3) << id
         << ": >>>>  " << sym << std::endl;
     }
 
@@ -982,8 +986,8 @@ void processor_t::disasm(insn_t insn)
     // }
 
     unsigned max_xlen = isa->get_max_xlen();
-
-    s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    // s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    s << "IT core " << std::dec << std::setfill(' ') << std::setw(3) << id
       // << std::hex << ": 0x" << std::setfill('0') << std::setw(max_xlen / 4)
       // << std::hex << ":" << std::setfill('0') << std::setw(max_xlen / 4)
       << std::dec << "(" << inst_cnt++ << ")"
