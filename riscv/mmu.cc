@@ -52,6 +52,8 @@ void throw_access_exception(bool virt, reg_t addr, access_type type)
   }
 }
 
+// share variable
+reg_t g_paddr;
 reg_t mmu_t::translate(mem_access_info_t access_info, reg_t len)
 {
   reg_t addr = access_info.vaddr;
@@ -63,6 +65,7 @@ reg_t mmu_t::translate(mem_access_info_t access_info, reg_t len)
   reg_t mode = (reg_t) access_info.effective_priv;
 
   reg_t paddr = walk(access_info) | (addr & (PGSIZE-1));
+  g_paddr = paddr;
   if (!pmp_ok(paddr, len, type, mode))
     throw_access_exception(virt, addr, type);
   return paddr;
