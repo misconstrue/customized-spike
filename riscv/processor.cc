@@ -33,7 +33,7 @@ processor_t::processor_t(const isa_parser_t *isa, const cfg_t *cfg,
                          simif_t* sim, uint32_t id, bool halt_on_reset,
                          FILE* log_file, std::ostream& sout_)
   : debug(false), halt_request(HR_NONE), isa(isa), cfg(cfg), sim(sim), id(id), xlen(0),
-  histogram_enabled(false), log_commits_enabled(false),
+  histogram_enabled(false), log_commits_enabled(false), print_ttw_enabled(false),
   log_file(log_file), sout_(sout_.rdbuf()), halt_on_reset(halt_on_reset),
   in_wfi(false), check_triggers_icount(false),
   impl_table(256, false), extension_enable_table(isa->get_extension_table()),
@@ -608,6 +608,11 @@ void processor_t::set_histogram(bool value)
 void processor_t::enable_log_commits()
 {
   log_commits_enabled = true;
+}
+
+void processor_t::enable_print_ttw()
+{
+  print_ttw_enabled = true;
 }
 
 void processor_t::reset()

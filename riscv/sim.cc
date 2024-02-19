@@ -316,6 +316,15 @@ void sim_t::set_procs_debug(bool value)
     procs[i]->set_debug(value);
 }
 
+void sim_t::set_procs_print_ttw(bool print_ttw)
+{
+  if (!print_ttw)
+    return;
+
+  for (size_t i=0; i < procs.size(); i++)
+    procs[i]->enable_print_ttw();
+}
+
 static bool paddr_ok(reg_t addr)
 {
   return (addr >> MAX_PADDR_BITS) == 0;

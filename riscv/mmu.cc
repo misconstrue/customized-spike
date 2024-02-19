@@ -5,6 +5,7 @@
 #include "arith.h"
 #include "simif.h"
 #include "processor.h"
+#include <sstream>
 
 mmu_t::mmu_t(simif_t* sim, endianness_t endianness, processor_t* proc)
  : sim(sim), proc(proc),
@@ -416,6 +417,14 @@ reg_t mmu_t::s2xlate(reg_t gva, reg_t gpa, access_type type, access_type trap_ty
   tinst |= ((type == STORE) && (is_for_vs_pt_addr == true)) ? 0x0020 : 0;
 
   reg_t base = vm.ptbase;
+
+  if (proc->get_print_ttw_enabled())
+  {
+    std::stringstream s;
+    s << std::hex << " gpa: 0x" << gpa << " base: 0x" << base << " mode " << get_field(proc->get_state()->hgatp->read(), HGATP64_MODE) << std::endl;
+    fputs(s.str().c_str(), proc->get_log_file());
+  }
+
   if ((gpa & ~maxgpa) == 0) {
     for (int i = vm.levels - 1; i >= 0; i--) {
       int ptshift = i * vm.idxbits;
@@ -428,6 +437,17 @@ reg_t mmu_t::s2xlate(reg_t gva, reg_t gpa, access_type type, access_type trap_ty
       reg_t ppn = (pte & ~reg_t(PTE_ATTR)) >> PTE_PPN_SHIFT;
       bool pbmte = proc->get_state()->menvcfg->read() & MENVCFG_PBMTE;
       bool hade = proc->get_state()->menvcfg->read() & MENVCFG_ADUE;
+
+      if (proc->get_print_ttw_enabled())
+      {
+        std::stringstream s;
+        s << std::hex << "  TTW: 2:" << vm.levels - 1 - i
+        << " pte_addr: 0x" << pte_paddr
+        << " pte: 0x" << pte
+        << " ppn : 0x" << ppn
+        << std::endl;
+        fputs(s.str().c_str(), proc->get_log_file());
+      }
 
       if (pte & PTE_RSVD) {
         break;
@@ -474,6 +494,14 @@ reg_t mmu_t::s2xlate(reg_t gva, reg_t gpa, access_type type, access_type trap_ty
         reg_t page_base = ((ppn & ~((reg_t(1) << napot_bits) - 1))
                           | (vpn & ((reg_t(1) << napot_bits) - 1))
                           | (vpn & ((reg_t(1) << ptshift) - 1))) << PGSHIFT;
+
+        if (proc->get_print_ttw_enabled())
+        {
+          std::stringstream s;
+          s << std::hex << " vpn: 0x" << vpn << ", phys: 0x" << (page_base | (gpa & page_mask)) << std::endl;
+          fputs(s.str().c_str(), proc->get_log_file());
+        }
+
         return page_base | (gpa & page_mask);
       }
     }
@@ -512,6 +540,14 @@ reg_t mmu_t::walk(mem_access_info_t access_info)
     vm.levels = 0;
 
   reg_t base = vm.ptbase;
+
+  if (proc->get_print_ttw_enabled())
+  {
+    std::stringstream s;
+    s << std::hex << " va: 0x" << addr << " base: 0x" << base << " mode: " << get_field(satp, SATP64_MODE) << std::endl;
+    fputs(s.str().c_str(), proc->get_log_file());
+  }
+
   for (int i = vm.levels - 1; i >= 0; i--) {
     int ptshift = i * vm.idxbits;
     reg_t idx = (addr >> (PGSHIFT + ptshift)) & ((1 << vm.idxbits) - 1);
@@ -522,6 +558,17 @@ reg_t mmu_t::walk(mem_access_info_t access_info)
     reg_t ppn = (pte & ~reg_t(PTE_ATTR)) >> PTE_PPN_SHIFT;
     bool pbmte = virt ? (proc->get_state()->henvcfg->read() & HENVCFG_PBMTE) : (proc->get_state()->menvcfg->read() & MENVCFG_PBMTE);
     bool hade = virt ? (proc->get_state()->henvcfg->read() & HENVCFG_ADUE) : (proc->get_state()->menvcfg->read() & MENVCFG_ADUE);
+
+    if (proc->get_print_ttw_enabled())
+    {
+      std::stringstream s;
+      s << std::hex << "  TTW: 1:" << vm.levels - 1 - i
+      << " pte_addr: 0x" << pte_paddr
+      << " pte: 0x" << pte
+      << " ppn: 0x" << ppn
+      << std::endl;
+      fputs(s.str().c_str(), proc->get_log_file());
+    }
 
     if (pte & PTE_RSVD) {
       break;
@@ -572,6 +619,13 @@ reg_t mmu_t::walk(mem_access_info_t access_info)
                         | (vpn & ((reg_t(1) << napot_bits) - 1))
                         | (vpn & ((reg_t(1) << ptshift) - 1))) << PGSHIFT;
       reg_t phys = page_base | (addr & page_mask);
+
+      if (proc->get_print_ttw_enabled())
+      {
+        std::stringstream s;
+        s << std::hex << " vpn: 0x" << vpn << ", phys: 0x" << phys << std::endl;
+        fputs(s.str().c_str(), proc->get_log_file());
+      }
       return s2xlate(addr, phys, type, type, virt, hlvx, false) & ~page_mask;
     }
   }

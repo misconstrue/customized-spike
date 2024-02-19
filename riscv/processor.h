@@ -206,7 +206,9 @@ public:
   void set_debug(bool value);
   void set_histogram(bool value);
   void enable_log_commits();
+  void enable_print_ttw();
   bool get_log_commits_enabled() const { return log_commits_enabled; }
+  bool get_print_ttw_enabled() const { return print_ttw_enabled; }
   void reset();
   void step(size_t n); // run for n cycles
   void put_csr(int which, reg_t val);
@@ -328,6 +330,7 @@ private:
   unsigned xlen;
   bool histogram_enabled;
   bool log_commits_enabled;
+  bool print_ttw_enabled;
   FILE *log_file;
   std::ostream sout_; // needed for socket command interface -s, also used for -d and -l, but not for --log
   bool halt_on_reset;

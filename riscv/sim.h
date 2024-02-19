@@ -48,6 +48,7 @@ public:
   void configure_log(bool enable_log, bool enable_commitlog);
 
   void set_procs_debug(bool value);
+  void set_procs_print_ttw(bool print_ttw);
   void set_remote_bitbang(remote_bitbang_t* remote_bitbang) {
     this->remote_bitbang = remote_bitbang;
   }
