@@ -233,7 +233,8 @@ private:
 #define set_field(reg, mask, val) \
   (((reg) & ~(std::remove_cv<decltype(reg)>::type)(mask)) | (((std::remove_cv<decltype(reg)>::type)(val) * ((mask) & ~((mask) << 1))) & (std::remove_cv<decltype(reg)>::type)(mask)))
 
-#define DEBUG_START             0x0
+// #define DEBUG_START             0x0
+#define DEBUG_START             0x22000000
 #define DEBUG_END               (0x1000 - 1)
 
 #endif
