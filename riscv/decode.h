@@ -235,6 +235,7 @@ private:
 
 // #define DEBUG_START             0x0
 #define DEBUG_START             0x22000000
-#define DEBUG_END               (0x1000 - 1)
+// #define DEBUG_END               (0x1000 - 1)
+#define DEBUG_END               0x22000FFF
 
 #endif
