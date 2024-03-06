@@ -974,42 +974,27 @@ void processor_t::disasm(insn_t insn)
 {
   static unsigned long inst_cnt = 0;
   uint64_t bits = insn.bits();
-  if (last_pc != state.pc || last_bits != bits) {
-    std::stringstream s;  // first put everything in a string, later send it to output
+  std::stringstream s;  // first put everything in a string, later send it to output
 
-    const char* sym = get_symbol(state.pc);
-    if (sym != nullptr)
-    {
-      // s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
-      s << "Symbol core" << std::dec << std::setfill(' ') << std::setw(3) << id
-        << ": >>>>  " << sym << std::endl;
-    }
-
-    // delete repeation print
-    // if (executions != 1) {
-    //   s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
-    //     << ": Executed " << executions << " times" << std::endl;
-    // }
-
-    unsigned max_xlen = isa->get_max_xlen();
+  const char* sym = get_symbol(state.pc);
+  if (sym != nullptr)
+  {
     // s << "core " << std::dec << std::setfill(' ') << std::setw(3) << id
-    s << "IT core " << std::dec << std::setfill(' ') << std::setw(3) << id
-      // << std::hex << ": 0x" << std::setfill('0') << std::setw(max_xlen / 4)
-      // << std::hex << ":" << std::setfill('0') << std::setw(max_xlen / 4)
-      << std::dec << "(" << inst_cnt++ << ")"
-      << " " << this->get_privilege_string() << "-MODE "
-      // << zext(state.pc, max_xlen) << " (" << std::setw(8) << bits << ") "
-      << std::hex << zext(state.pc, max_xlen) << " " << std::setfill('0') << std::setw(8) << bits << " " 
-      << disassembler->disassemble(insn) << std::endl;
-
-    debug_output_log(&s);
-
-    last_pc = state.pc;
-    last_bits = bits;
-    executions = 1;
-  } else {
-    executions++;
+    s << "Symbol core" << std::dec << std::setfill(' ') << std::setw(3) << id
+      << ": >>>>  " << sym << std::endl;
   }
+
+  unsigned max_xlen = isa->get_max_xlen();
+  s << "IT core " << std::dec << std::setfill(' ') << std::setw(3) << id
+    << std::dec << "(" << inst_cnt++ << ")"
+    << " " << this->get_privilege_string() << "-MODE "
+    << std::hex << zext(state.pc, max_xlen) << " " << std::setfill('0') << std::setw(8) << bits << " " 
+    << disassembler->disassemble(insn) << std::endl;
+
+  debug_output_log(&s);
+
+  last_pc = state.pc;
+  last_bits = bits;
 }
 
 int processor_t::paddr_bits()
