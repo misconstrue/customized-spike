@@ -32,9 +32,6 @@ typedef enum {
   EXT_ZKSH,
   EXT_ZKR,
   EXT_ZMMUL,
-  EXT_ZBPBO,
-  EXT_ZPN,
-  EXT_ZPSFOPERAND,
   EXT_ZVFH,
   EXT_ZVFHMIN,
   EXT_SMEPMP,
@@ -66,14 +63,6 @@ typedef enum {
   EXT_ZVKNHB,
   EXT_ZVKSED,
   EXT_ZVKSH,
-  EXT_XZBP,
-  EXT_XZBS,
-  EXT_XZBE,
-  EXT_XZBF,
-  EXT_XZBC,
-  EXT_XZBM,
-  EXT_XZBR,
-  EXT_XZBT,
   EXT_SSTC,
   EXT_ZAAMO,
   EXT_ZALRSC,
@@ -88,6 +77,7 @@ typedef enum {
   EXT_ZALASR,
   EXT_SSQOSID,
   EXT_ZICFILP,
+  EXT_ZICFISS,
   NUM_ISA_EXTENSIONS
 } isa_extension_t;
 
