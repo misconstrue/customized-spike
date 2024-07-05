@@ -59,7 +59,8 @@ bool trigger_t::common_match(processor_t * const proc, bool use_prev_prv) const 
   auto state = proc->get_state();
   auto prv = use_prev_prv ? state->prev_prv : state->prv;
   auto v = use_prev_prv ? state->prev_v : state->v;
-  return mode_match(prv, v) && textra_match(proc);
+  auto m_enabled = get_action() != 0 || (state->tcontrol->read() & CSR_TCONTROL_MTE);
+  return (prv < PRV_M || m_enabled) && mode_match(prv, v) && textra_match(proc);
 }
 
 bool trigger_t::mode_match(reg_t prv, bool v) const noexcept
@@ -82,7 +83,7 @@ bool trigger_t::textra_match(processor_t * const proc) const noexcept
   if (sselect == SSELECT_SCONTEXT) {
     reg_t mask = (reg_t(1) << ((xlen == 32) ? CSR_TEXTRA32_SVALUE_LENGTH : CSR_TEXTRA64_SVALUE_LENGTH)) - 1;
     assert(CSR_TEXTRA32_SBYTEMASK_LENGTH < CSR_TEXTRA64_SBYTEMASK_LENGTH);
-    for (int i = 0; i < CSR_TEXTRA64_SBYTEMASK_LENGTH; i++)
+    for (unsigned i = 0; i < CSR_TEXTRA64_SBYTEMASK_LENGTH; i++)
       if (sbytemask & (1 << i))
         mask &= ~(reg_t(0xff) << (i * 8));
     if ((state->scontext->read() & mask) != (svalue & mask))
