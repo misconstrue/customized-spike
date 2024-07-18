@@ -197,13 +197,13 @@ bool pmpaddr_csr_t::access_ok(access_type type, reg_t mode, bool hlvx) const noe
   if (mseccfg_mml) {
     if (cfgx && cfgw && cfgr && cfgl) {
       // Locked Shared data region: Read only on both M and S/U mode.
-      return typer;
+      return typer && !hlvx;
     } else {
       const bool mml_shared_region = !cfgr && cfgw;
       const bool mml_chk_normal = (prvm == cfgl) && normal_rwx;
       const bool mml_chk_shared =
-              (!cfgl && cfgx && (typer || typew)) ||
-              (!cfgl && !cfgx && (typer || (typew && prvm))) ||
+              (!cfgl && cfgx && ((typer && !hlvx) || typew)) ||
+              (!cfgl && !cfgx && ((typer && !hlvx) || (typew && prvm))) ||
               (cfgl && typex) ||
               (cfgl && typer && cfgx && prvm);
       return mml_shared_region ? mml_chk_shared : mml_chk_normal;
@@ -930,6 +930,7 @@ bool medeleg_csr_t::unlogged_write(const reg_t val) noexcept {
     | (1 << CAUSE_STORE_PAGE_FAULT)
     | (proc->extension_enabled('H') ? hypervisor_exceptions : 0)
     | (1 << CAUSE_SOFTWARE_CHECK_FAULT)
+    | (1 << CAUSE_HARDWARE_ERROR_FAULT)
     ;
   return basic_csr_t::unlogged_write((read() & ~mask) | (val & mask));
 }
@@ -1354,7 +1355,6 @@ bool dcsr_csr_t::unlogged_write(const reg_t val) noexcept {
   ebreaku = proc->extension_enabled('U') ? get_field(val, DCSR_EBREAKU) : false;
   ebreakvs = proc->extension_enabled('H') ? get_field(val, CSR_DCSR_EBREAKVS) : false;
   ebreakvu = proc->extension_enabled('H') ? get_field(val, CSR_DCSR_EBREAKVU) : false;
-  halt = get_field(val, DCSR_NMIP);
   v = proc->extension_enabled('H') ? get_field(val, CSR_DCSR_V) : false;
   pelp = proc->extension_enabled(EXT_ZICFILP) ?
          static_cast<elp_t>(get_field(val, DCSR_PELP)) : elp_t::NO_LP_EXPECTED;
@@ -1752,8 +1752,6 @@ srmcfg_csr_t::srmcfg_csr_t(processor_t* const proc, const reg_t addr, const reg_
 }
 
 void srmcfg_csr_t::verify_permissions(insn_t insn, bool write) const {
-  csr_t::verify_permissions(insn, write);
-
   if (!proc->extension_enabled(EXT_SSQOSID))
     throw trap_illegal_instruction(insn.bits());
 
@@ -1764,6 +1762,10 @@ void srmcfg_csr_t::verify_permissions(insn_t insn, bool write) const {
 
   if (state->v)
       throw trap_virtual_instruction(insn.bits());
+
+  if (state->prv < PRV_S) {
+    throw trap_illegal_instruction(insn.bits());
+  }
 }
 
 hvip_csr_t::hvip_csr_t(processor_t* const proc, const reg_t addr, const reg_t init):
