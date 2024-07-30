@@ -297,11 +297,7 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
   csrmap[CSR_SCAUSE] = scause = std::make_shared<virtualized_csr_t>(proc, nonvirtual_scause, vscause);
   csrmap[CSR_MTVAL2] = mtval2 = std::make_shared<mtval2_csr_t>(proc, CSR_MTVAL2);
   csrmap[CSR_MTINST] = mtinst = std::make_shared<hypervisor_csr_t>(proc, CSR_MTINST);
-  const reg_t hstatus_init = set_field((reg_t)0, HSTATUS_VSXL, xlen_to_uxl(proc->get_const_xlen()));
-  const reg_t hstatus_mask = HSTATUS_VTSR | HSTATUS_VTW
-    | (proc->supports_impl(IMPL_MMU) ? HSTATUS_VTVM : 0)
-    | HSTATUS_HU | HSTATUS_SPVP | HSTATUS_SPV | HSTATUS_GVA;
-  csrmap[CSR_HSTATUS] = hstatus = std::make_shared<masked_csr_t>(proc, CSR_HSTATUS, hstatus_mask, hstatus_init);
+  csrmap[CSR_HSTATUS] = hstatus = std::make_shared<hstatus_csr_t>(proc, CSR_HSTATUS);
   csrmap[CSR_HGEIE] = std::make_shared<const_csr_t>(proc, CSR_HGEIE, 0);
   csrmap[CSR_HGEIP] = std::make_shared<const_csr_t>(proc, CSR_HGEIP, 0);
   csrmap[CSR_HIDELEG] = hideleg = std::make_shared<hideleg_csr_t>(proc, CSR_HIDELEG, mideleg);
@@ -388,14 +384,14 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
   if (proc->extension_enabled_const('U')) {
     const reg_t menvcfg_mask = (proc->extension_enabled(EXT_ZICBOM) ? MENVCFG_CBCFE | MENVCFG_CBIE : 0) |
                               (proc->extension_enabled(EXT_ZICBOZ) ? MENVCFG_CBZE : 0) |
+                              (proc->extension_enabled(EXT_SMNPM) ? MENVCFG_PMM : 0) |
                               (proc->extension_enabled(EXT_SVADU) ? MENVCFG_ADUE: 0) |
                               (proc->extension_enabled(EXT_SVPBMT) ? MENVCFG_PBMTE : 0) |
                               (proc->extension_enabled(EXT_SSTC) ? MENVCFG_STCE : 0) |
                               (proc->extension_enabled(EXT_ZICFILP) ? MENVCFG_LPE : 0) |
                               (proc->extension_enabled(EXT_ZICFISS) ? MENVCFG_SSE : 0) |
                               (proc->extension_enabled(EXT_SSDBLTRP) ? MENVCFG_DTE : 0);
-    const reg_t menvcfg_init = (proc->extension_enabled(EXT_SVPBMT) ? MENVCFG_PBMTE : 0);
-    menvcfg = std::make_shared<envcfg_csr_t>(proc, CSR_MENVCFG, menvcfg_mask, menvcfg_init);
+    menvcfg = std::make_shared<envcfg_csr_t>(proc, CSR_MENVCFG, menvcfg_mask, 0);
     if (xlen == 32) {
       csrmap[CSR_MENVCFG] = std::make_shared<rv32_low_csr_t>(proc, CSR_MENVCFG, menvcfg);
       csrmap[CSR_MENVCFGH] = std::make_shared<rv32_high_csr_t>(proc, CSR_MENVCFGH, menvcfg);
@@ -404,19 +400,20 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
     }
     const reg_t senvcfg_mask = (proc->extension_enabled(EXT_ZICBOM) ? SENVCFG_CBCFE | SENVCFG_CBIE : 0) |
                               (proc->extension_enabled(EXT_ZICBOZ) ? SENVCFG_CBZE : 0) |
+                              (proc->extension_enabled(EXT_SSNPM) ? SENVCFG_PMM : 0) |
                               (proc->extension_enabled(EXT_ZICFILP) ? SENVCFG_LPE : 0) |
                               (proc->extension_enabled(EXT_ZICFISS) ? SENVCFG_SSE : 0);
     csrmap[CSR_SENVCFG] = senvcfg = std::make_shared<senvcfg_csr_t>(proc, CSR_SENVCFG, senvcfg_mask, 0);
     const reg_t henvcfg_mask = (proc->extension_enabled(EXT_ZICBOM) ? HENVCFG_CBCFE | HENVCFG_CBIE : 0) |
                               (proc->extension_enabled(EXT_ZICBOZ) ? HENVCFG_CBZE : 0) |
+                              (proc->extension_enabled(EXT_SSNPM) ? HENVCFG_PMM : 0) |
                               (proc->extension_enabled(EXT_SVADU) ? HENVCFG_ADUE: 0) |
                               (proc->extension_enabled(EXT_SVPBMT) ? HENVCFG_PBMTE : 0) |
                               (proc->extension_enabled(EXT_SSTC) ? HENVCFG_STCE : 0) |
                               (proc->extension_enabled(EXT_ZICFILP) ? HENVCFG_LPE : 0) |
                               (proc->extension_enabled(EXT_ZICFISS) ? HENVCFG_SSE : 0) |
                               (proc->extension_enabled(EXT_SSDBLTRP) ? HENVCFG_DTE : 0);
-    const reg_t henvcfg_init = (proc->extension_enabled(EXT_SVPBMT) ? HENVCFG_PBMTE : 0);
-    henvcfg = std::make_shared<henvcfg_csr_t>(proc, CSR_HENVCFG, henvcfg_mask, henvcfg_init, menvcfg);
+    henvcfg = std::make_shared<henvcfg_csr_t>(proc, CSR_HENVCFG, henvcfg_mask, 0, menvcfg);
     if (xlen == 32) {
       csrmap[CSR_HENVCFG] = std::make_shared<rv32_low_csr_t>(proc, CSR_HENVCFG, henvcfg);
       csrmap[CSR_HENVCFGH] = std::make_shared<rv32_high_csr_t>(proc, CSR_HENVCFGH, henvcfg);
@@ -583,7 +580,8 @@ void processor_t::reset()
   state.reset(this, isa->get_max_isa());
   state.dcsr->halt = halt_on_reset;
   halt_on_reset = false;
-  VU.reset();
+  if (any_vector_extensions())
+    VU.reset();
   in_wfi = false;
 
   if (n_pmp > 0) {
