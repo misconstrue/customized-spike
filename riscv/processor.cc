@@ -30,49 +30,50 @@
 #undef STATE
 #define STATE state
 
-processor_t::processor_t(const isa_parser_t *isa, const cfg_t *cfg,
+processor_t::processor_t(const char* isa_str, const char* priv_str,
+                         const cfg_t *cfg,
                          simif_t* sim, uint32_t id, bool halt_on_reset,
                          FILE* log_file, std::ostream& sout_)
-  : debug(false), halt_request(HR_NONE), isa(isa), cfg(cfg), sim(sim), id(id), xlen(0),
-  histogram_enabled(false), log_commits_enabled(false), print_ttw_enabled(false),
+: debug(false), halt_request(HR_NONE), isa(isa_str, priv_str), cfg(cfg), sim(sim), id(id), xlen(0),
+  histogram_enabled(false), log_commits_enabled(false),
   log_file(log_file), sout_(sout_.rdbuf()), halt_on_reset(halt_on_reset),
   in_wfi(false), check_triggers_icount(false),
-  impl_table(256, false), extension_enable_table(isa->get_extension_table()),
+  impl_table(256, false), extension_enable_table(isa.get_extension_table()),
   last_pc(1), executions(1), TM(cfg->trigger_count)
 {
   VU.p = this;
   TM.proc = this;
 
 #ifndef HAVE_INT128
-  if (isa->has_any_vector()) {
+  if (isa.has_any_vector()) {
     fprintf(stderr, "V extension is not supported on platforms without __int128 type\n");
     abort();
   }
 
-  if (isa->extension_enabled(EXT_ZACAS) && isa->get_max_xlen() == 64) {
+  if (isa.extension_enabled(EXT_ZACAS) && isa.get_max_xlen() == 64) {
     fprintf(stderr, "Zacas extension is not supported on 64-bit platforms without __int128 type\n");
     abort();
   }
 #endif
 
-  VU.VLEN = isa->get_vlen();
-  VU.ELEN = isa->get_elen();
-  VU.vlenb = isa->get_vlen() / 8;
+  VU.VLEN = isa.get_vlen();
+  VU.ELEN = isa.get_elen();
+  VU.vlenb = isa.get_vlen() / 8;
   VU.vstart_alu = 0;
 
   register_base_instructions();
   mmu = new mmu_t(sim, cfg->endianness, this);
 
-  disassembler = new disassembler_t(isa);
-  for (auto e : isa->get_extensions())
+  disassembler = new disassembler_t(&isa);
+  for (auto e : isa.get_extensions())
     register_extension(find_extension(e.c_str())());
 
   set_pmp_granularity(cfg->pmpgranularity);
   set_pmp_num(cfg->pmpregions);
 
-  if (isa->get_max_xlen() == 32)
+  if (isa.get_max_xlen() == 32)
     set_mmu_capability(IMPL_MMU_SV32);
-  else if (isa->get_max_xlen() == 64)
+  else if (isa.get_max_xlen() == 64)
     set_mmu_capability(IMPL_MMU_SV57);
 
   set_impl(IMPL_MMU_ASID, true);
@@ -193,14 +194,14 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
     csrmap[CSR_MINSTRET] = minstret;
     csrmap[CSR_MCYCLE] = mcycle;
   }
-  for (reg_t i = 3; i < N_HPMCOUNTERS + 3; ++i) {
-    const reg_t which_mevent = CSR_MHPMEVENT3 + i - 3;
-    const reg_t which_meventh = CSR_MHPMEVENT3H + i - 3;
-    const reg_t which_mcounter = CSR_MHPMCOUNTER3 + i - 3;
-    const reg_t which_mcounterh = CSR_MHPMCOUNTER3H + i - 3;
-    const reg_t which_counter = CSR_HPMCOUNTER3 + i - 3;
-    const reg_t which_counterh = CSR_HPMCOUNTER3H + i - 3;
-    mevent[i - 3] = std::make_shared<mevent_csr_t>(proc, which_mevent);
+  for (reg_t i = 0; i < N_HPMCOUNTERS; ++i) {
+    const reg_t which_mevent = CSR_MHPMEVENT3 + i;
+    const reg_t which_meventh = CSR_MHPMEVENT3H + i;
+    const reg_t which_mcounter = CSR_MHPMCOUNTER3 + i;
+    const reg_t which_mcounterh = CSR_MHPMCOUNTER3H + i;
+    const reg_t which_counter = CSR_HPMCOUNTER3 + i;
+    const reg_t which_counterh = CSR_HPMCOUNTER3H + i;
+    mevent[i] = std::make_shared<mevent_csr_t>(proc, which_mevent);
     auto mcounter = std::make_shared<const_csr_t>(proc, which_mcounter, 0);
     csrmap[which_mcounter] = mcounter;
 
@@ -209,7 +210,7 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
       csrmap[which_counter] = counter;
     }
     if (xlen == 32) {
-      csrmap[which_mevent] = std::make_shared<rv32_low_csr_t>(proc, which_mevent, mevent[i - 3]);;
+      csrmap[which_mevent] = std::make_shared<rv32_low_csr_t>(proc, which_mevent, mevent[i]);;
       auto mcounterh = std::make_shared<const_csr_t>(proc, which_mcounterh, 0);
       csrmap[which_mcounterh] = mcounterh;
       if (proc->extension_enabled_const(EXT_ZIHPM)) {
@@ -217,11 +218,11 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
         csrmap[which_counterh] = counterh;
       }
       if (proc->extension_enabled_const(EXT_SSCOFPMF)) {
-        auto meventh = std::make_shared<rv32_high_csr_t>(proc, which_meventh, mevent[i - 3]);
+        auto meventh = std::make_shared<rv32_high_csr_t>(proc, which_meventh, mevent[i]);
         csrmap[which_meventh] = meventh;
       }
     } else {
-      csrmap[which_mevent] = mevent[i - 3];
+      csrmap[which_mevent] = mevent[i];
     }
   }
   csrmap[CSR_MCOUNTINHIBIT] = std::make_shared<const_csr_t>(proc, CSR_MCOUNTINHIBIT, 0);
@@ -417,7 +418,7 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
                             (proc->extension_enabled(EXT_ZICFISS) ? HENVCFG_SSE : 0) |
                             (proc->extension_enabled(EXT_SSDBLTRP) ? HENVCFG_DTE : 0);
   henvcfg = std::make_shared<henvcfg_csr_t>(proc, CSR_HENVCFG, henvcfg_mask, 0, menvcfg);
-  if (proc->extension_enabled_const('H')) {
+  if (proc->extension_enabled('H')) {
     if (xlen == 32) {
       csrmap[CSR_HENVCFG] = std::make_shared<rv32_low_csr_t>(proc, CSR_HENVCFG, henvcfg);
       csrmap[CSR_HENVCFGH] = std::make_shared<rv32_high_csr_t>(proc, CSR_HENVCFGH, henvcfg);
@@ -580,8 +581,8 @@ void processor_t::enable_print_ttw()
 
 void processor_t::reset()
 {
-  xlen = isa->get_max_xlen();
-  state.reset(this, isa->get_max_isa());
+  xlen = isa.get_max_xlen();
+  state.reset(this, isa.get_max_isa());
   state.dcsr->halt = halt_on_reset;
   halt_on_reset = false;
   if (any_vector_extensions())
@@ -729,7 +730,7 @@ void processor_t::take_interrupt(reg_t pending_interrupts)
       abort();
 
     if (check_triggers_icount) TM.detect_icount_match();
-    throw trap_t(((reg_t)1 << (isa->get_max_xlen() - 1)) | ctz(enabled_interrupts));
+    throw trap_t(((reg_t)1 << (isa.get_max_xlen() - 1)) | ctz(enabled_interrupts));
   }
 }
 
@@ -801,7 +802,7 @@ void processor_t::debug_output_log(std::stringstream *s)
 
 void processor_t::take_trap(trap_t& t, reg_t epc)
 {
-  unsigned max_xlen = isa->get_max_xlen();
+  unsigned max_xlen = isa.get_max_xlen();
 
   if (debug) {
     std::stringstream s; // first put everything in a string, later send it to output
@@ -979,7 +980,7 @@ void processor_t::disasm(insn_t insn)
       << ": >>>>  " << sym << std::endl;
   }
 
-  unsigned max_xlen = isa->get_max_xlen();
+  unsigned max_xlen = isa.get_max_xlen();
   s << "IT core " << std::dec << std::setfill(' ') << std::setw(3) << id
     << std::dec << "(" << inst_cnt++ << ")"
     << " " << this->get_privilege_string() << "-MODE "
@@ -994,7 +995,7 @@ void processor_t::disasm(insn_t insn)
 
 int processor_t::paddr_bits()
 {
-  unsigned max_xlen = isa->get_max_xlen();
+  unsigned max_xlen = isa.get_max_xlen();
   assert(xlen == max_xlen);
   return max_xlen == 64 ? 50 : 34;
 }
@@ -1121,7 +1122,7 @@ void processor_t::register_base_instructions()
   // add overlapping instructions first, in order
   #define DECLARE_OVERLAP_INSN(name, ext) \
     name##_overlapping = true; \
-    if (isa->extension_enabled(ext)) \
+    if (isa.extension_enabled(ext)) \
       register_base_insn((insn_desc_t) { \
         name##_match, \
         name##_mask, \
