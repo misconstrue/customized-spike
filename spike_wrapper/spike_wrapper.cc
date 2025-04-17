@@ -21,6 +21,7 @@
 #include "../VERSION"
 
 #include "spike_wrapper.hh"
+#include <memory.h>
 
 static void help(int exit_code = 1)
 {
@@ -315,7 +316,7 @@ static std::vector<size_t> parse_hartids(const char *s)
   return hartids;
 }
 
-static int init_spike_env(int argc, char** argv)
+static int init_spike_env(int argc, char** argv, std::shared_ptr<sim_t> s)
 {
   bool debug = false;
   bool halted = false;
@@ -517,21 +518,21 @@ static int init_spike_env(int argc, char** argv)
     cfg.hartids = default_hartids;
   }
 
-  sim_t s(&cfg, halted,
+  s = std::make_shared<sim_t> (&cfg, halted,
       mems, plugin_device_factories, htif_args, dm_config, log_path, dtb_enabled, dtb_file,
       socket,
       cmd_file,
       instructions);
   std::unique_ptr<remote_bitbang_t> remote_bitbang((remote_bitbang_t *) NULL);
   std::unique_ptr<jtag_dtm_t> jtag_dtm(
-      new jtag_dtm_t(&s.debug_module, dmi_rti));
+      new jtag_dtm_t(&(s->debug_module), dmi_rti));
   if (use_rbb) {
     remote_bitbang.reset(new remote_bitbang_t(rbb_port, &(*jtag_dtm)));
-    s.set_remote_bitbang(&(*remote_bitbang));
+    s->set_remote_bitbang(&(*remote_bitbang));
   }
 
   if (dump_dts) {
-    printf("%s", s.get_dts());
+    printf("%s", s->get_dts());
     return 0;
   }
 
@@ -541,25 +542,141 @@ static int init_spike_env(int argc, char** argv)
   if (dc) dc->set_log(log_cache);
   for (size_t i = 0; i < cfg.nprocs(); i++)
   {
-    if (ic) s.get_core(i)->get_mmu()->register_memtracer(&*ic);
-    if (dc) s.get_core(i)->get_mmu()->register_memtracer(&*dc);
+    if (ic) s->get_core(i)->get_mmu()->register_memtracer(&*ic);
+    if (dc) s->get_core(i)->get_mmu()->register_memtracer(&*dc);
     for (auto e : extensions)
-      s.get_core(i)->register_extension(e());
-    s.get_core(i)->get_mmu()->set_cache_blocksz(blocksz);
+      s->get_core(i)->register_extension(e());
+    s->get_core(i)->get_mmu()->set_cache_blocksz(blocksz);
   }
 
-  s.set_debug(debug);
-  s.set_procs_print_ttw(print_ttw);
-  s.configure_log(log, log_commits);
-  s.set_histogram(histogram);
+  s->set_debug(debug);
+  s->set_procs_print_ttw(print_ttw);
+  s->configure_log(log, log_commits);
+  s->set_histogram(histogram);
 
-  auto return_code = s.run();
 
-  for (auto& mem : mems)
-    delete mem.second;
 
-  return return_code;
+//   auto return_code = s->run();
+
+//   for (auto& mem : mems)
+//     delete mem.second;
+
+//   return return_code;
+  return 0;
 }
 
 
+static int parse_cfg_file(const char *filename, char **argv_buffer) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Can Not Open Cfg File\n");
+        return -1;
+    }
+  
+    int argc = 0;
+    char line[MAX_LINE_LENGTH];
+  
+    while (fgets(line, sizeof(line), file)) {
+        // 替换换行符和回车符为空格
+        for (int i = 0; line[i] != '\0'; i++) {
+            if (line[i] == '\n' || line[i] == '\r') {
+                line[i] = ' ';
+            }
+        }
+  
+        // 按空格分割字符串
+        char *token = strtok(line, " ");
+        while (token != NULL) {
+          argv_buffer[argc] = token;  // 直接将分割后的字符串放入 argv_buffer 中
+            argc++;
+            token = strtok(NULL, " ");  // 获取下一个参数
+        }
+    }
+  
+    fclose(file);
+    return argc;  // 返回参数个数
+}
 
+
+const char* xpr_name_upper[] = {
+  "zero", "ra", "sp",  "gp",  "tp", "t0",  "t1",  "t2",
+  "s0",   "s1", "a0",  "a1",  "a2", "a3",  "a4",  "a5",
+  "a6",   "a7", "s2",  "s3",  "s4", "s5",  "s6",  "s7",
+  "s8",   "s9", "s10", "s11", "t3", "t4",  "t5",  "t6"
+};
+
+const char* fpr_name_upper[] = {
+  "FT0", "FT1", "FT2",  "FT3",  "FT4", "FT5", "FT6",  "FT7",
+  "FS0", "FS1", "FA0",  "FA1",  "FA2", "FA3", "FA4",  "FA5",
+  "FA6", "FA7", "FS2",  "FS3",  "FS4", "FS5", "FS6",  "FS7",
+  "FS8", "FS9", "FS10", "FS11", "FT8", "FT9", "FT10", "FT11"
+};
+
+const char* vr_name_upper[] = {
+ "V0",  "V1",  "V2",  "V3",  "V4",  "V5",  "V6",  "V7",
+ "V8",  "V9",  "V10", "V11", "V12", "V13", "V14", "V15",
+ "V16", "V17", "V18", "V19", "V20", "V21", "V22", "V23",
+ "V24", "V25", "V26", "V27", "V28", "V29", "V30", "V31"
+};
+
+const char* xpr_alias_name_upper[] = {
+ "X0",  "X1",  "X2",  "X3", "X4",  "X5",  "X6",  "X7",
+ "X8",  "X9",  "X10",  "X11", "X12",  "X13",  "X14",  "X15",
+ "X16",  "X17",  "X18",  "X19", "X20",  "X21",  "X22",  "X23",
+ "X24",  "X25",  "X26",  "X27", "X28",  "X29",  "X30",  "X31"
+};
+
+const char* fpr_alias_name_upper[] = {
+ "F0",  "F1",  "F2",  "F3",  "F4",  "F5",  "F6",  "F7",
+ "F8",  "F9",  "F10",  "F11",  "F12",  "F13",  "F14",  "F15",
+ "F16",  "F17",  "F18",  "F19",  "F20",  "F21",  "F22",  "F23",
+ "F24",  "F25",  "F26",  "F27",  "F28",  "F29",  "F30",  "F31"
+};
+
+SpikeWrapper::SpikeWrapper(const char *filename) {
+  // 为了和init_spike_env的参数适配，相当于添加一个命令行的命令名
+  strcpy(&argv_buffer[0][0], "spike");
+  argc = parse_cfg_file(filename, (char **)&(argv_buffer[1][0]));
+  init_spike_env(argc, (char **)argv_buffer, s);
+}
+
+SpikeWrapper::~SpikeWrapper() {
+
+}
+
+// sim->mmio_load  sim->mmio_store
+bool SpikeWrapper::mmio_load(reg_t paddr, size_t len, uint8_t* bytes) {
+  return true;
+}
+
+// sim->mmio_load  sim->mmio_store
+bool SpikeWrapper::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes) {
+  return true;
+}
+
+// get_core->get_state->XPR/XPR.write(size_t i, T value)
+// get_core->get_state->FPR/FPR.wirte(size_t i, T value)
+// get_core->get_state->VU.reg_file
+// #define DECLARE_CSR(name, number) if (args[1] == #name) return p->get_csr(number);
+// #include "encoding.h"
+void SpikeWrapper::reg_write(std::string name, const void *value) {
+  return;
+}
+
+void SpikeWrapper::reg_read(std::string name, void *value) {
+  return;
+}
+
+// start_pc:modify state pc in processor
+// count: step(n)
+void SpikeWrapper::run(reg_t start_pc, size_t count) {
+  return;
+}
+
+// delete sim_t and call init_spike_env again
+void SpikeWrapper::reset() {
+  // 复位暂时用这种简单的方式，当相于重新调用SpikeWrapper初始化
+  assert(s.use_count() == 1);
+  s.reset();
+  init_spike_env(argc, (char **)argv_buffer, s);
+}
