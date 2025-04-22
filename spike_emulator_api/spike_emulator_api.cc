@@ -1,27 +1,4 @@
-#include "config.h"
-#include "cfg.h"
-#include "sim.h"
-#include "mmu.h"
-#include "arith.h"
-#include "remote_bitbang.h"
-#include "cachesim.h"
-#include "extension.h"
-#include <dlfcn.h>
-#include <fesvr/option_parser.h>
-#include <stdexcept>
-#include <stdio.h>
-#include <stdlib.h>
-#include <vector>
-#include <string>
-#include <memory>
-#include <fstream>
-#include <limits>
-#include <cinttypes>
-#include <sstream>
-#include "../VERSION"
-
-#include "spike_wrapper.hh"
-#include <memory.h>
+#include "spike_emulator_api.hh"
 
 static void help(int exit_code = 1)
 {
@@ -316,7 +293,7 @@ static std::vector<size_t> parse_hartids(const char *s)
   return hartids;
 }
 
-static int init_spike_env(int argc, char** argv, std::shared_ptr<sim_t> s)
+int SpikeEmulator::init_spike_env(int argc, char ** argv)
 {
   bool debug = false;
   bool halted = false;
@@ -461,14 +438,13 @@ static int init_spike_env(int argc, char** argv, std::shared_ptr<sim_t> s)
     instructions = strtoull(s, 0, 0);
   });
 
-  auto argv1 = parser.parse(argv);
+  auto argv1 = parser.parse((const char*const*)argv);
   std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);
 
   if (!*argv1)
     help();
 
-  std::vector<std::pair<reg_t, abstract_mem_t*>> mems =
-      make_mems(cfg.mem_layout);
+  mems = make_mems(cfg.mem_layout);
 
   if (kernel && check_file_exists(kernel)) {
     const char *isa = cfg.isa;
@@ -533,7 +509,10 @@ static int init_spike_env(int argc, char** argv, std::shared_ptr<sim_t> s)
 
   if (dump_dts) {
     printf("%s", s->get_dts());
-    return 0;
+    // return 0;
+    for (auto& mem : mems)
+      delete mem.second;
+    exit(-1);
   }
 
   if (ic && l2) ic->set_miss_handler(&*l2);
@@ -554,49 +533,14 @@ static int init_spike_env(int argc, char** argv, std::shared_ptr<sim_t> s)
   s->configure_log(log, log_commits);
   s->set_histogram(histogram);
 
-
-
 //   auto return_code = s->run();
 
 //   for (auto& mem : mems)
 //     delete mem.second;
 
-//   return return_code;
+  // return return_code;
   return 0;
 }
-
-
-static int parse_cfg_file(const char *filename, char **argv_buffer) {
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        perror("Can Not Open Cfg File\n");
-        return -1;
-    }
-  
-    int argc = 0;
-    char line[MAX_LINE_LENGTH];
-  
-    while (fgets(line, sizeof(line), file)) {
-        // 替换换行符和回车符为空格
-        for (int i = 0; line[i] != '\0'; i++) {
-            if (line[i] == '\n' || line[i] == '\r') {
-                line[i] = ' ';
-            }
-        }
-  
-        // 按空格分割字符串
-        char *token = strtok(line, " ");
-        while (token != NULL) {
-          argv_buffer[argc] = token;  // 直接将分割后的字符串放入 argv_buffer 中
-            argc++;
-            token = strtok(NULL, " ");  // 获取下一个参数
-        }
-    }
-  
-    fclose(file);
-    return argc;  // 返回参数个数
-}
-
 
 const char* xpr_name_upper[] = {
   "zero", "ra", "sp",  "gp",  "tp", "t0",  "t1",  "t2",
@@ -633,25 +577,66 @@ const char* fpr_alias_name_upper[] = {
  "F24",  "F25",  "F26",  "F27",  "F28",  "F29",  "F30",  "F31"
 };
 
-SpikeWrapper::SpikeWrapper(const char *filename) {
+static int parse_cfg_file(const char *filename, char *buff) {
+  FILE *file = fopen(filename, "r");
+  if (!file) {
+      perror("Can Not Open Cfg File\n");
+      exit(-1);
+  }
+  strcpy(buff, "spike");
+  // printf("inner argv[0]: %p\n", *argv);
+  buff += (strlen(buff)+1);
+  int inx = 1;
+  char line_buff[MAX_ARGS_LEN];
+  for (; fgets(line_buff, MAX_ARGS_LEN, file); inx++) {
+    // 覆盖换行符号为结束符号
+    if (line_buff[strlen(line_buff)-1] == '\n') {
+      line_buff[strlen(line_buff)-1] = '\0';
+    }
+    strcpy(buff, line_buff);
+    // printf("inner %s\n", buff);
+    buff += (strlen(buff)+1);
+  }
+  fclose(file);
+  return inx;  // 返回参数个数
+}
+
+SpikeEmulator::SpikeEmulator(const char *filename) {
+  char buff[MAX_ARGS*MAX_ARGS_LEN];
+  memset(buff, '\0', MAX_ARGS*MAX_ARGS_LEN);
   // 为了和init_spike_env的参数适配，相当于添加一个命令行的命令名
-  strcpy(&argv_buffer[0][0], "spike");
-  argc = parse_cfg_file(filename, (char **)&(argv_buffer[1][0]));
-  init_spike_env(argc, (char **)argv_buffer, s);
+  argc = parse_cfg_file(filename, buff);
+
+  // 重组为一个argv，仿照main的参数
+  argv = new char *[argc];
+  char *temp = buff;
+  for (int i = 0; i < argc; i++) {
+    argv[i] = temp;
+    // printf("out %s\n", temp);
+    int len = strlen(temp);
+    temp += (len+1);
+  }
+  for(int i = 0; i < argc; i++) {
+    printf("argv_inx: %d %s\n", i, argv[i]);
+  }
+  init_spike_env(argc, argv);
 }
 
-SpikeWrapper::~SpikeWrapper() {
-
+SpikeEmulator::~SpikeEmulator() {
+  delete [] argv;
+  // 地址空间实例，需要析构
+  for (auto& mem : mems)
+    delete mem.second;
 }
 
-// sim->mmio_load  sim->mmio_store
-bool SpikeWrapper::mmio_load(reg_t paddr, size_t len, uint8_t* bytes) {
-  return true;
+// sim->mmio_load
+bool SpikeEmulator::mmio_load(reg_t paddr, size_t len, uint8_t* bytes) {
+  return s->load(paddr, len, bytes);
 }
 
-// sim->mmio_load  sim->mmio_store
-bool SpikeWrapper::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes) {
-  return true;
+// sim->mmio_store
+bool SpikeEmulator::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes) {
+  return s->store(paddr, len, bytes);
 }
 
 // get_core->get_state->XPR/XPR.write(size_t i, T value)
@@ -659,24 +644,32 @@ bool SpikeWrapper::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes) {
 // get_core->get_state->VU.reg_file
 // #define DECLARE_CSR(name, number) if (args[1] == #name) return p->get_csr(number);
 // #include "encoding.h"
-void SpikeWrapper::reg_write(std::string name, const void *value) {
+void SpikeEmulator::reg_write(std::string name, const void *value) {
   return;
 }
 
-void SpikeWrapper::reg_read(std::string name, void *value) {
+void SpikeEmulator::reg_read(std::string name, void *value) {
   return;
 }
 
 // start_pc:modify state pc in processor
 // count: step(n)
-void SpikeWrapper::run(reg_t start_pc, size_t count) {
+void SpikeEmulator::run(reg_t start_pc, size_t count) {
+  s->get_core(0)->get_state()->pc = start_pc;
+  const std::string cmd = "rs";
+  const std::vector<std::string>& args = {"1"};
+  for (size_t i = 0; i < count; i++) {
+    // s->step_one();
+    // s->get_core(0)->get_state()->debug_mode = true;
+    // printf("current pc:%lx\n", s->get_core(0)->get_state()->pc);
+    s->interactive_run_public(cmd, args);
+  }
   return;
 }
 
 // delete sim_t and call init_spike_env again
-void SpikeWrapper::reset() {
-  // 复位暂时用这种简单的方式，当相于重新调用SpikeWrapper初始化
+void SpikeEmulator::reset() {
+  // 重新初始化一边环境，理论上来说只有mems和sim这两个堆上对象。
   assert(s.use_count() == 1);
-  s.reset();
-  init_spike_env(argc, (char **)argv_buffer, s);
+  init_spike_env(argc, argv);
 }

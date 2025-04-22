@@ -326,7 +326,6 @@ void processor_t::step(size_t n)
           instret++;
           state.pc = pc;
         }
-
         advance_pc();
       }
     }

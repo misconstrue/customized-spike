@@ -1,0 +1,16 @@
+spike_emulator_api_subproject_deps = \
+	fdt \
+	fesvr \
+	softfloat \
+	disasm \
+	riscv \
+
+spike_emulator_api_install_hdrs = \
+    spike_emulator_api.hh \
+
+spike_emulator_api_srcs = \
+    spike_emulator_api.cc \
+
+spike_emulator_api_install_shared_lib = yes
+
+spike_emulator_api_install_lib = yes

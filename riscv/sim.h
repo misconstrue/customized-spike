@@ -163,6 +163,19 @@ public:
   // enumerate processors, which segfaults if procs hasn't been initialized
   // yet.
   debug_module_t debug_module;
+  // public memory-mapped I/O routines
+  virtual bool load(reg_t paddr, size_t len, uint8_t* bytes) {
+    return mmio_load(paddr, len, bytes);
+  };
+  virtual bool store(reg_t paddr, size_t len, const uint8_t* bytes) {
+    return mmio_store(paddr, len, bytes);
+  };
+  void step_one() {
+    step(1);
+  };
+  void interactive_run_public(const std::string& cmd, const std::vector<std::string>& args){
+    interactive_run_noisy(cmd, args);
+  }
 };
 
 extern volatile bool ctrlc_pressed;
