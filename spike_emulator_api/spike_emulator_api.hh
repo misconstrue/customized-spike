@@ -49,7 +49,6 @@ public:
     void reset();
     int init_spike_env(int argc, char ** argv);
 
-
 private:
     // 命令行参数需要记录下来，以便之后复位状态使用
     char **argv;

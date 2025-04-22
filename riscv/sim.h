@@ -170,9 +170,6 @@ public:
   virtual bool store(reg_t paddr, size_t len, const uint8_t* bytes) {
     return mmio_store(paddr, len, bytes);
   };
-  void step_one() {
-    step(1);
-  };
   void interactive_run_public(const std::string& cmd, const std::vector<std::string>& args){
     interactive_run_noisy(cmd, args);
   }

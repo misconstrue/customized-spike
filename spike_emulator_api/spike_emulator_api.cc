@@ -439,7 +439,10 @@ int SpikeEmulator::init_spike_env(int argc, char ** argv)
   });
 
   auto argv1 = parser.parse((const char*const*)argv);
-  std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);
+
+  // std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);
+  std::vector<std::string> htif_args;
+  htif_args.push_back("");
 
   if (!*argv1)
     help();
@@ -542,6 +545,13 @@ int SpikeEmulator::init_spike_env(int argc, char ** argv)
   return 0;
 }
 
+static void to_lower(std::string& input) {
+  std::transform(input.begin(), input.end(), input.begin(), [](unsigned char c) {
+      return std::tolower(c);
+  });
+  return;
+}
+
 const char* xpr_name_upper[] = {
   "zero", "ra", "sp",  "gp",  "tp", "t0",  "t1",  "t2",
   "s0",   "s1", "a0",  "a1",  "a2", "a3",  "a4",  "a5",
@@ -550,31 +560,31 @@ const char* xpr_name_upper[] = {
 };
 
 const char* fpr_name_upper[] = {
-  "FT0", "FT1", "FT2",  "FT3",  "FT4", "FT5", "FT6",  "FT7",
-  "FS0", "FS1", "FA0",  "FA1",  "FA2", "FA3", "FA4",  "FA5",
-  "FA6", "FA7", "FS2",  "FS3",  "FS4", "FS5", "FS6",  "FS7",
-  "FS8", "FS9", "FS10", "FS11", "FT8", "FT9", "FT10", "FT11"
+  "ft0", "ft1", "ft2",  "ft3",  "ft4", "ft5", "ft6",  "ft7",
+  "fs0", "fs1", "fa0",  "fa1",  "fa2", "fa3", "fa4",  "fa5",
+  "fa6", "fa7", "fs2",  "fs3",  "fs4", "fs5", "fs6",  "fs7",
+  "fs8", "fs9", "fs10", "fs11", "ft8", "ft9", "ft10", "ft11"
 };
 
 const char* vr_name_upper[] = {
- "V0",  "V1",  "V2",  "V3",  "V4",  "V5",  "V6",  "V7",
- "V8",  "V9",  "V10", "V11", "V12", "V13", "V14", "V15",
- "V16", "V17", "V18", "V19", "V20", "V21", "V22", "V23",
- "V24", "V25", "V26", "V27", "V28", "V29", "V30", "V31"
+ "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",
+ "v8",  "v9",  "v10", "v11", "v12", "v13", "v14", "v15",
+ "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",
+ "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31"
 };
 
 const char* xpr_alias_name_upper[] = {
- "X0",  "X1",  "X2",  "X3", "X4",  "X5",  "X6",  "X7",
- "X8",  "X9",  "X10",  "X11", "X12",  "X13",  "X14",  "X15",
- "X16",  "X17",  "X18",  "X19", "X20",  "X21",  "X22",  "X23",
- "X24",  "X25",  "X26",  "X27", "X28",  "X29",  "X30",  "X31"
+ "x0",  "x1",  "x2",  "x3", "x4",  "x5",  "x6",  "x7",
+ "x8",  "x9",  "x10",  "x11", "x12",  "x13",  "x14",  "x15",
+ "x16",  "x17",  "x18",  "x19", "x20",  "x21",  "x22",  "x23",
+ "x24",  "x25",  "x26",  "x27", "x28",  "x29",  "x30",  "x31"
 };
 
 const char* fpr_alias_name_upper[] = {
- "F0",  "F1",  "F2",  "F3",  "F4",  "F5",  "F6",  "F7",
- "F8",  "F9",  "F10",  "F11",  "F12",  "F13",  "F14",  "F15",
- "F16",  "F17",  "F18",  "F19",  "F20",  "F21",  "F22",  "F23",
- "F24",  "F25",  "F26",  "F27",  "F28",  "F29",  "F30",  "F31"
+ "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",
+ "f8",  "f9",  "f10",  "f11",  "f12",  "f13",  "f14",  "f15",
+ "f16",  "f17",  "f18",  "f19",  "f20",  "f21",  "f22",  "f23",
+ "f24",  "f25",  "f26",  "f27",  "f28",  "f29",  "f30",  "f31"
 };
 
 static int parse_cfg_file(const char *filename, char *buff) {
@@ -639,16 +649,80 @@ bool SpikeEmulator::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes) {
   return s->store(paddr, len, bytes);
 }
 
+// refer to following code
 // get_core->get_state->XPR/XPR.write(size_t i, T value)
 // get_core->get_state->FPR/FPR.wirte(size_t i, T value)
-// get_core->get_state->VU.reg_file
+// get_core->>VU.reg_file
 // #define DECLARE_CSR(name, number) if (args[1] == #name) return p->get_csr(number);
-// #include "encoding.h"
-void SpikeEmulator::reg_write(std::string name, const void *value) {
+// const int NXPR = 32;
+// const int NFPR = 32;
+// const int NVPR = 32;
+// const int NCSR = 4096;
+void SpikeEmulator::reg_write(std::string reg_name, const void *value) {
+  to_lower(reg_name);
+  unsigned long r;
+  if ((r = (std::find(xpr_name_upper, xpr_name_upper + NXPR, reg_name) - xpr_name_upper)) != NXPR ||
+  (r = (std::find(xpr_alias_name_upper, xpr_alias_name_upper + NXPR, reg_name) - xpr_alias_name_upper)) != NXPR) {
+    // x0 always write zero
+    if (r == 0) {
+      memset((char*)&(s->get_core(0)->get_state()->XPR[r]), 0,
+      (s->get_core(0)->get_xlen())>>3);
+      return;
+    }
+    memcpy((char*)&(s->get_core(0)->get_state()->XPR[r]), value,
+    (s->get_core(0)->get_xlen())>>3);
+    return;
+  } else if ((r = (std::find(fpr_name_upper, fpr_name_upper + NFPR, reg_name) - fpr_name_upper)) != NFPR ||
+  (r = (std::find(fpr_alias_name_upper, fpr_alias_name_upper + NFPR, reg_name) - fpr_alias_name_upper)) != NFPR) {
+    memcpy((char*)&(s->get_core(0)->get_state()->FPR[r]), value,
+    (s->get_core(0)->get_flen())>>3);
+    return;
+  } else if ((r = (std::find(vr_name_upper, vr_name_upper + NVPR, reg_name) - vr_name_upper)) != NVPR) {
+    memcpy((char*)(s->get_core(0)->VU.reg_file), value,
+    (s->get_core(0)->VU.VLEN)>>3);
+    return;
+  } else {
+    #define DECLARE_CSR(name, number) if (reg_name == #name) { \
+      s->get_core(0)->put_csr(number, *(unsigned long *)value); \
+      return; }
+    #include "encoding.h"
+    #undef DECLARE_CSR
+    return;
+  }
+
+  throw std::runtime_error("reg write error, no such reg");
   return;
 }
 
-void SpikeEmulator::reg_read(std::string name, void *value) {
+// refer to reg_write func
+void SpikeEmulator::reg_read(std::string reg_name, void *value) {
+  to_lower(reg_name);
+  unsigned long r;
+  if ((r = (std::find(xpr_name_upper, xpr_name_upper + NXPR, reg_name) - xpr_name_upper)) != NXPR ||
+  (r = (std::find(xpr_alias_name_upper, xpr_alias_name_upper + NXPR, reg_name) - xpr_alias_name_upper)) != NXPR) {
+    memcpy(value, (char*)&(s->get_core(0)->get_state()->XPR[r]),
+    (s->get_core(0)->get_xlen())>>3);
+    return;
+  } else if ((r = (std::find(fpr_name_upper, fpr_name_upper + NFPR, reg_name) - fpr_name_upper)) != NFPR ||
+  (r = (std::find(fpr_alias_name_upper, fpr_alias_name_upper + NFPR, reg_name) - fpr_alias_name_upper)) != NFPR) {
+    memcpy(value, (char*)&(s->get_core(0)->get_state()->FPR[r]),
+    (s->get_core(0)->get_flen())>>3);
+    return;
+  } else if ((r = (std::find(vr_name_upper, vr_name_upper + NVPR, reg_name) - vr_name_upper)) != NVPR) {
+    memcpy(value, (char*)(s->get_core(0)->VU.reg_file),
+    (s->get_core(0)->VU.VLEN)>>3);
+    return;
+  } else {
+    reg_t csr_reg_value;
+    #define DECLARE_CSR(name, number) if (reg_name == #name) { \
+      csr_reg_value = s->get_core(0)->get_csr(number); \
+      memcpy(value, (char*)&(csr_reg_value), (s->get_core(0)->get_xlen())>>3); \
+    return; }
+    #include "encoding.h"
+    #undef DECLARE_CSR
+  }
+
+  throw std::runtime_error("reg read error, no such reg");
   return;
 }
 
@@ -659,9 +733,6 @@ void SpikeEmulator::run(reg_t start_pc, size_t count) {
   const std::string cmd = "rs";
   const std::vector<std::string>& args = {"1"};
   for (size_t i = 0; i < count; i++) {
-    // s->step_one();
-    // s->get_core(0)->get_state()->debug_mode = true;
-    // printf("current pc:%lx\n", s->get_core(0)->get_state()->pc);
     s->interactive_run_public(cmd, args);
   }
   return;

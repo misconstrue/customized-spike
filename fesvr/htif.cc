@@ -88,7 +88,6 @@ void htif_t::start()
     if (targs[0] != "none") {
       try {
         load_program();
-        ;
       } catch (const incompat_xlen & err) {
         fprintf(stderr, "Error: cannot execute %d-bit program on RV%d hart\n", err.actual_xlen, err.expected_xlen);
         exit(1);
