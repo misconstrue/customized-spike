@@ -510,10 +510,7 @@ int SpikeEmulator::init_spike_env(int argc, char ** argv)
 
   if (dump_dts) {
     printf("%s", s->get_dts());
-    // return 0;
-    for (auto& mem : mems)
-      delete mem.second;
-    exit(-1);
+    return 0;
   }
 
   if (ic && l2) ic->set_miss_handler(&*l2);
