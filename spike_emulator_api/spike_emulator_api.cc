@@ -440,9 +440,7 @@ int SpikeEmulator::init_spike_env(int argc, char ** argv)
 
   auto argv1 = parser.parse((const char*const*)argv);
 
-  // std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);
-  std::vector<std::string> htif_args;
-  htif_args.push_back("");
+  std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);
 
   if (!*argv1)
     help();
