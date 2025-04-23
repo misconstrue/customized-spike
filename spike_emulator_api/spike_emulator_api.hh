@@ -21,7 +21,7 @@
 #include <limits>
 #include <cinttypes>
 #include <sstream>
-#include "../VERSION"
+// #include "../VERSION"
 #include "decode.h"
 
 #define MAX_ARGS_LEN 1000

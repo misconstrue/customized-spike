@@ -2,7 +2,7 @@
 
 static void help(int exit_code = 1)
 {
-  fprintf(stderr, "Spike RISC-V ISA Simulator " SPIKE_VERSION "\n\n");
+  // fprintf(stderr, "Spike RISC-V ISA Simulator " SPIKE_VERSION "\n\n");
   fprintf(stderr, "usage: spike [host options] <target program> [target options]\n");
   fprintf(stderr, "Host Options:\n");
   fprintf(stderr, "  -p<n>                 Simulate <n> processors [default 1]\n");
@@ -673,8 +673,9 @@ void SpikeEmulator::reg_write(std::string reg_name, const void *value) {
     (s->get_core(0)->get_flen())>>3);
     return;
   } else if ((r = (std::find(vr_name_upper, vr_name_upper + NVPR, reg_name) - vr_name_upper)) != NVPR) {
-    memcpy((char*)(s->get_core(0)->VU.reg_file), value,
-    (s->get_core(0)->VU.VLEN)>>3);
+    unsigned vlen = (s->get_core(0)->VU.VLEN)>>3;
+    memcpy(((char*)(s->get_core(0)->VU.reg_file)+vlen*r), value,
+    vlen);
     return;
   } else {
     #define DECLARE_CSR(name, number) if (reg_name == #name) { \
@@ -704,8 +705,9 @@ void SpikeEmulator::reg_read(std::string reg_name, void *value) {
     (s->get_core(0)->get_flen())>>3);
     return;
   } else if ((r = (std::find(vr_name_upper, vr_name_upper + NVPR, reg_name) - vr_name_upper)) != NVPR) {
-    memcpy(value, (char*)(s->get_core(0)->VU.reg_file),
-    (s->get_core(0)->VU.VLEN)>>3);
+    unsigned vlen = (s->get_core(0)->VU.VLEN)>>3;
+    memcpy(value, ((char*)(s->get_core(0)->VU.reg_file)+vlen*r),
+    vlen);
     return;
   } else {
     reg_t csr_reg_value;

@@ -44,6 +44,9 @@ riscv_install_hdrs = \
 	trap.h \
 	triggers.h \
 	vector_unit.h \
+	arith.h \
+	remote_bitbang.h \
+	jtag_dtm.h \
 
 riscv_precompiled_hdrs = \
 	insn_template.h \
