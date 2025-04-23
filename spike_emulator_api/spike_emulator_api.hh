@@ -26,7 +26,7 @@
 
 #define MAX_ARGS_LEN 1000
 #define MAX_ARGS 100
-//   int r = std::find(fpr_name, fpr_name + NFPR, args[1]) - fpr_name;
+
 class SpikeEmulator {
 public:
     SpikeEmulator(const char *filename);

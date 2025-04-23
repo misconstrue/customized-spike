@@ -637,12 +637,12 @@ SpikeEmulator::~SpikeEmulator() {
     delete mem.second;
 }
 
-// sim->mmio_load
+// refer to sim->mmio_load
 bool SpikeEmulator::mmio_load(reg_t paddr, size_t len, uint8_t* bytes) {
   return s->load(paddr, len, bytes);
 }
 
-// sim->mmio_store
+// refer to sim->mmio_store
 bool SpikeEmulator::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes) {
   return s->store(paddr, len, bytes);
 }
