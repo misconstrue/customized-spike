@@ -177,3 +177,19 @@ reg_t external_sim_device_t::size() {
   if (unlikely(external_simulator == nullptr)) return 0;
   return PGSIZE; // TODO: proper size
 }
+
+bool TestDevice::load(reg_t addr, size_t len, uint8_t* bytes) {
+  throw trap_load_access_fault(0x0, 0x0, 0x0, 0x0);
+}
+
+bool TestDevice::store(reg_t addr, size_t len, const uint8_t* bytes) {
+  throw trap_load_access_fault(0x0, 0x0, 0x0, 0x0);
+}
+
+reg_t TestDevice::size() {
+  return _size;
+}
+
+TestDevice::TestDevice() { _size = 0x1000;}
+
+TestDevice::~TestDevice() {}

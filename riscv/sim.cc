@@ -68,7 +68,8 @@ sim_t::sim_t(const cfg_t *cfg, bool halted,
 
   for (auto& x : mems)
     bus.add_device(x.first, x.second);
-
+  TestDevice *td =new TestDevice(); 
+  bus.add_device(0x71000000, td);
   bus.add_device(DEBUG_START, &debug_module);
 
   socketif = NULL;

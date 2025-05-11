@@ -213,4 +213,16 @@ void read_little_endian_reg(T word, reg_t addr, size_t len, uint8_t* bytes)
   }
 }
 
+class TestDevice: public abstract_device_t {
+  public:
+   virtual bool load(reg_t addr, size_t len, uint8_t* bytes) override;
+   virtual bool store(reg_t addr, size_t len, const uint8_t* bytes) override;
+   virtual reg_t size() override;
+   TestDevice();
+   virtual ~TestDevice();
+
+  private:
+   uint64_t _size;
+};
+
 #endif
