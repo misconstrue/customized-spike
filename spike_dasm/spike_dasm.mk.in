@@ -8,3 +8,5 @@ spike_dasm_srcs = \
 
 spike_dasm_install_prog_srcs = \
 	spike-dasm.cc \
+
+spike_dasm_install_lib = yes

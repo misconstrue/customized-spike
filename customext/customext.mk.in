@@ -9,3 +9,5 @@ customext_srcs = \
 	cflush.cc \
 
 customext_install_shared_lib = yes
+
+customext_install_lib = yes

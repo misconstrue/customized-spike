@@ -5,4 +5,6 @@ disasm_srcs = \
 
 disasm_install_lib = yes
 
+disasm_install_shared_lib = yes
+
 disasm_install_pcs = yes
