@@ -8,8 +8,8 @@
 #include "decode_macros.h"
 #include <sstream>
 
-mmu_t::mmu_t(simif_t* sim, endianness_t endianness, processor_t* proc)
- : sim(sim), proc(proc),
+mmu_t::mmu_t(simif_t* sim, endianness_t endianness, processor_t* proc, reg_t cache_blocksz)
+ : sim(sim), proc(proc), blocksz(cache_blocksz),
 #ifdef RISCV_ENABLE_DUAL_ENDIAN
   target_big_endian(endianness == endianness_big),
 #endif
@@ -375,7 +375,7 @@ void mmu_t::store_slow_path(reg_t original_addr, reg_t len, const uint8_t* bytes
     store_slow_path_intrapage(len, bytes, access_info, actually_store);
   }
 
-  if (proc && unlikely(proc->get_log_commits_enabled()))
+  if (actually_store && proc && unlikely(proc->get_log_commits_enabled()))
     proc->state.log_mem_write.push_back(std::make_tuple(original_addr, reg_from_bytes(len, bytes), len));
 }
 

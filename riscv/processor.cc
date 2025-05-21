@@ -34,7 +34,8 @@ processor_t::processor_t(const char* isa_str, const char* priv_str,
                          const cfg_t *cfg,
                          simif_t* sim, uint32_t id, bool halt_on_reset,
                          FILE* log_file, std::ostream& sout_)
-: debug(false), halt_request(HR_NONE), isa(isa_str, priv_str), cfg(cfg), sim(sim), id(id), xlen(0),
+: debug(false), halt_request(HR_NONE), isa(isa_str, priv_str), cfg(cfg),
+  sim(sim), id(id), xlen(isa.get_max_xlen()),
   histogram_enabled(false), log_commits_enabled(false),
   log_file(log_file), sout_(sout_.rdbuf()), halt_on_reset(halt_on_reset),
   in_wfi(false), check_triggers_icount(false),
@@ -62,7 +63,7 @@ processor_t::processor_t(const char* isa_str, const char* priv_str,
   VU.vstart_alu = 0;
 
   register_base_instructions();
-  mmu = new mmu_t(sim, cfg->endianness, this);
+  mmu = new mmu_t(sim, cfg->endianness, this, cfg->cache_blocksz);
 
   disassembler = new disassembler_t(&isa);
   for (auto e : isa.get_extensions())
@@ -332,7 +333,7 @@ void processor_t::set_privilege(reg_t prv, bool virt)
   state.v_changed = state.v != state.prev_v;
 }
 
-const char* processor_t::get_privilege_string()
+const char* processor_t::get_privilege_string() const
 {
   if (state.debug_mode)
     return "D";
