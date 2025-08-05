@@ -118,8 +118,8 @@ sim_t::sim_t(const cfg_t *cfg, bool halted,
   // particular, the default device tree configuration that you get without
   // setting the dtb_file argument has one.
   std::vector<device_factory_sargs_t> device_factories = {
-    {clint_factory, {}}, // clint must be element 0
-    {plic_factory, {}}, // plic must be element 1
+    {clint_factory, {}},
+    {plic_factory, {}},
     {ns16550_factory, {}}};
   device_factories.insert(device_factories.end(),
                           plugin_device_factories.begin(),
@@ -253,10 +253,15 @@ sim_t::sim_t(const cfg_t *cfg, bool halted,
       std::shared_ptr<abstract_device_t> dev_ptr(device);
       add_device(device_base, dev_ptr);
 
-      if (i == 0) // clint_factory
+      if (dynamic_cast<clint_t*>(&*dev_ptr)) {
+        assert(!clint);
         clint = std::static_pointer_cast<clint_t>(dev_ptr);
-      else if (i == 1) // plic_factory
+      }
+
+      if (dynamic_cast<plic_t*>(&*dev_ptr)) {
+        assert(!plic);
         plic = std::static_pointer_cast<plic_t>(dev_ptr);
+      }
     }
   }
 }
@@ -354,14 +359,14 @@ static bool paddr_ok(reg_t addr)
 
 bool sim_t::mmio_load(reg_t paddr, size_t len, uint8_t* bytes)
 {
-  if (paddr + len < paddr || !paddr_ok(paddr + len - 1))
+  if (paddr + len < paddr)
     return false;
   return bus.load(paddr, len, bytes);
 }
 
 bool sim_t::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes)
 {
-  if (paddr + len < paddr || !paddr_ok(paddr + len - 1))
+  if (paddr + len < paddr)
     return false;
   return bus.store(paddr, len, bytes);
 }
@@ -412,8 +417,6 @@ void sim_t::set_rom()
 }
 
 char* sim_t::addr_to_mem(reg_t paddr) {
-  if (!paddr_ok(paddr))
-    return NULL;
   auto desc = bus.find_device(paddr >> PGSHIFT << PGSHIFT, PGSIZE);
   if (auto mem = dynamic_cast<abstract_mem_t*>(desc.second))
     return mem->contents(paddr - desc.first);
