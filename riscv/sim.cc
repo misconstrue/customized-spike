@@ -351,12 +351,6 @@ void sim_t::set_procs_print_ttw(bool print_ttw)
     procs[i]->enable_print_ttw();
 }
 
-static bool paddr_ok(reg_t addr)
-{
-  static_assert(MAX_PADDR_BITS == 8 * sizeof(addr));
-  return true;
-}
-
 bool sim_t::mmio_load(reg_t paddr, size_t len, uint8_t* bytes)
 {
   if (paddr + len < paddr)
