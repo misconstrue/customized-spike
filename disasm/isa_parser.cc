@@ -334,6 +334,12 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
       extension_table[EXT_ZVFWBDOT16BF] = true;
     } else if (ext_str == "zvfbdot32f") {
       extension_table[EXT_ZVFBDOT32F] = true;
+    } else if (ext_str == "zvqldot8i") {
+      extension_table[EXT_ZVQLDOT8I] = true;
+    } else if (ext_str == "zvqldot16i") {
+      extension_table[EXT_ZVQLDOT16I] = true;
+    } else if (ext_str == "zvfwldot16bf") {
+      extension_table[EXT_ZVFWLDOT16BF] = true;
     } else if (ext_str == "zvkt") {
     } else if (ext_str == "sstc") {
         extension_table[EXT_SSTC] = true;
@@ -528,7 +534,7 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
     bad_isa_string(str, "Spike does not currently support VLEN > 4096b");
   }
 
-  if ((vlen != 0) ^ (elen != 0)) {
+  if ((vlen != 0) ^ (elen != 0) || vlen < elen) {
     bad_isa_string(str, "Invalid Zvl/Zve configuration");
   }
 
