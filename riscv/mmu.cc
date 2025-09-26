@@ -7,6 +7,7 @@
 #include "processor.h"
 #include "decode_macros.h"
 #include <sstream>
+#include "platform.h"
 
 mmu_t::mmu_t(simif_t* sim, endianness_t endianness, processor_t* proc, reg_t cache_blocksz)
  : sim(sim), proc(proc), blocksz(cache_blocksz),
@@ -143,8 +144,8 @@ reg_t reg_from_bytes(size_t len, const uint8_t* bytes)
 bool mmu_t::mmio_ok(reg_t paddr, access_type UNUSED type)
 {
   // Disallow access to debug region when not in debug mode
-  static_assert(DEBUG_START == 0);
-  if (/* paddr >= DEBUG_START && */ paddr <= DEBUG_END && proc && !proc->state.debug_mode)
+  reg_t debug_start = DEBUG_START; // suppress -Wtype-limits
+  if (paddr >= debug_start && paddr - debug_start < DEBUG_SIZE && proc && !proc->state.debug_mode)
     return false;
 
   return true;
@@ -558,7 +559,7 @@ reg_t mmu_t::s2xlate(reg_t gva, reg_t gpa, access_type type, access_type trap_ty
         if ((pte & ad) != ad) {
           if (hade) {
             // set accessed and possibly dirty bits
-            pte_store(pte_paddr, pte | ad, gva, virt, type, vm.ptesize);
+            pte_store(pte_paddr, pte | ad, gva, virt, trap_type, vm.ptesize);
           } else {
             // take exception if access or possibly dirty bit is not set.
             break;
