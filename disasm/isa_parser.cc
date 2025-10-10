@@ -205,6 +205,8 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
       extension_table[EXT_ZCMP] = true;
     } else if (ext_str == "zcmt") {
       extension_table[EXT_ZCMT] = true;
+    } else if (ext_str == "zibi") {
+      extension_table[EXT_ZIBI] = true;
     } else if (ext_str == "zk") {
       extension_table[EXT_ZBKB] = true;
       extension_table[EXT_ZBKC] = true;
@@ -330,6 +332,8 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
       extension_table[EXT_ZVQBDOT8I] = true;
     } else if (ext_str == "zvqbdot16i") {
       extension_table[EXT_ZVQBDOT16I] = true;
+    } else if (ext_str == "zvfqbdot8f") {
+      extension_table[EXT_ZVFQBDOT8F] = true;
     } else if (ext_str == "zvfwbdot16bf") {
       extension_table[EXT_ZVFWBDOT16BF] = true;
     } else if (ext_str == "zvfbdot32f") {
@@ -338,6 +342,8 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
       extension_table[EXT_ZVQLDOT8I] = true;
     } else if (ext_str == "zvqldot16i") {
       extension_table[EXT_ZVQLDOT16I] = true;
+    } else if (ext_str == "zvfqldot8f") {
+      extension_table[EXT_ZVFQLDOT8F] = true;
     } else if (ext_str == "zvfwldot16bf") {
       extension_table[EXT_ZVFWLDOT16BF] = true;
     } else if (ext_str == "zvkt") {
