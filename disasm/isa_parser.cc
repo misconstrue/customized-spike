@@ -130,6 +130,12 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
         // Zvfh implies Zfhmin
         extension_table[EXT_ZFHMIN] = true;
       }
+    } else if (ext_str == "zvfbfa") {
+      extension_table[EXT_ZVFBFA] = true;
+    } else if (ext_str == "zvfofp4min") {
+      extension_table[EXT_ZVFOFP4MIN] = true;
+    } else if (ext_str == "zvfofp8min") {
+      extension_table[EXT_ZVFOFP8MIN] = true;
     } else if (ext_str == "zicsr") {
       // Spike necessarily has Zicsr, because
       // Zicsr is implied by the privileged architecture
@@ -245,6 +251,8 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
       extension_table[EXT_SMEPMP] = true;
     } else if (ext_str == "smstateen") {
       extension_table[EXT_SMSTATEEN] = true;
+    } else if (ext_str == "smpmpmt") {
+      extension_table[EXT_SMPMPMT] = true;
     } else if (ext_str == "smrnmi") {
       extension_table[EXT_SMRNMI] = true;
     } else if (ext_str == "sscofpmf") {
@@ -259,6 +267,10 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
       extension_table[EXT_SVPBMT] = true;
     } else if (ext_str == "svinval") {
       extension_table[EXT_SVINVAL] = true;
+    } else if (ext_str == "svukte") {
+      if (max_xlen != 64)
+        bad_isa_string(str, "'svukte' requires RV64");
+      extension_table[EXT_SVUKTE] = true;
     } else if (ext_str == "zfa") {
       extension_table[EXT_ZFA] = true;
     } else if (ext_str == "zicbom") {
@@ -481,8 +493,20 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
     bad_isa_string(str, "'Zvfbfmin' extension requires 'Zve32f' extension");
   }
 
+  if (extension_table[EXT_ZVFBFA] && (!has_any_vector() || !extension_table[EXT_ZFBFMIN] || !get_zvf())) {
+    bad_isa_string(str, "'zvfbfa' extension requires at least 'Zve32f', and 'Zfbfmin'");
+  }
+
   if (extension_table[EXT_ZVFBFWMA] && (!extension_table[EXT_ZFBFMIN] || !extension_table[EXT_ZVFBFMIN])) {
     bad_isa_string(str, "'Zvfbfwma' extension requires 'Zfbfmin' and 'Zvfbfmin' extensions");
+  }
+
+  if (extension_table[EXT_ZVFOFP4MIN] && (!has_any_vector() || !get_zvf())) {
+    bad_isa_string(str, "'Zvfofp4min' extension requires either 'V' or 'Zve32f' extension");
+  }
+
+  if (extension_table[EXT_ZVFOFP8MIN] && (!has_any_vector() || !get_zvf())) {
+    bad_isa_string(str, "'Zvfofp8min' extension requires either 'V' or 'Zve32f' extension");
   }
 
   if (extension_table[EXT_ZFINX] && extension_table['F']) {

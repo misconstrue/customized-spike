@@ -249,7 +249,10 @@ bool pmpcfg_csr_t::unlogged_write(const reg_t val) noexcept {
     if (i < proc->n_pmp) {
       const bool locked = (state->pmpaddr[i]->cfg & PMP_L);
       if (rlb || !locked) {
-        uint8_t cfg = (val >> (8 * (i - i0))) & (PMP_R | PMP_W | PMP_X | PMP_A | PMP_L);
+        uint8_t all_cfg_fields = (PMP_R | PMP_W | PMP_X | PMP_A |
+            (proc->extension_enabled(EXT_SMPMPMT) ? PMP_MT : 0) |
+            PMP_L);
+        uint8_t cfg = (val >> (8 * (i - i0))) & all_cfg_fields;
         // Drop R=0 W=1 when MML = 0
         // Remove the restriction when MML = 1
         if (!mml) {
@@ -258,6 +261,9 @@ bool pmpcfg_csr_t::unlogged_write(const reg_t val) noexcept {
         // Disallow A=NA4 when granularity > 4
         if (proc->lg_pmp_granularity != PMP_SHIFT && (cfg & PMP_A) == PMP_NA4)
           cfg |= PMP_NAPOT;
+        // MT value 0x3 is reserved
+        if (get_field(cfg, PMP_MT) == 0x3)
+          cfg = set_field(cfg, PMP_MT, 0);
         /*
          * Adding a rule with executable privileges that either is M-mode-only or a locked Shared-Region
          * is not possible and such pmpcfg writes are ignored, leaving pmpcfg unchanged.
@@ -966,8 +972,11 @@ medeleg_csr_t::medeleg_csr_t(processor_t* const proc, const reg_t addr):
                         | (1 << CAUSE_FETCH_GUEST_PAGE_FAULT)
                         | (1 << CAUSE_LOAD_GUEST_PAGE_FAULT)
                         | (1 << CAUSE_VIRTUAL_INSTRUCTION)
-                        | (1 << CAUSE_STORE_GUEST_PAGE_FAULT)
-                        ) {
+                        | (1 << CAUSE_STORE_GUEST_PAGE_FAULT)),
+  mmu_exceptions(0
+                 | (1 << CAUSE_FETCH_PAGE_FAULT)
+                 | (1 << CAUSE_LOAD_PAGE_FAULT)
+                 | (1 << CAUSE_STORE_PAGE_FAULT)) {
 }
 
 void medeleg_csr_t::verify_permissions(insn_t insn, bool write) const {
@@ -988,9 +997,7 @@ bool medeleg_csr_t::unlogged_write(const reg_t val) noexcept {
     | (1 << CAUSE_STORE_ACCESS)
     | (1 << CAUSE_USER_ECALL)
     | (1 << CAUSE_SUPERVISOR_ECALL)
-    | (1 << CAUSE_FETCH_PAGE_FAULT)
-    | (1 << CAUSE_LOAD_PAGE_FAULT)
-    | (1 << CAUSE_STORE_PAGE_FAULT)
+    | (proc->supports_impl(IMPL_MMU) ? mmu_exceptions : 0)
     | (proc->extension_enabled('H') ? hypervisor_exceptions : 0)
     | (1 << CAUSE_SOFTWARE_CHECK_FAULT)
     | (1 << CAUSE_HARDWARE_ERROR_FAULT)
@@ -2020,7 +2027,8 @@ hstatus_csr_t::hstatus_csr_t(processor_t* const proc, const reg_t addr):
 }
 
 bool hstatus_csr_t::unlogged_write(const reg_t val) noexcept {
-  const reg_t mask = HSTATUS_VTSR | HSTATUS_VTW
+  const reg_t mask = (proc->extension_enabled(EXT_SVUKTE) ? HSTATUS_HUKTE  : 0)
+    | HSTATUS_VTSR | HSTATUS_VTW
     | (proc->supports_impl(IMPL_MMU) ? HSTATUS_VTVM : 0)
     | (proc->extension_enabled(EXT_SSNPM) ? HSTATUS_HUPMM : 0)
     | HSTATUS_HU | HSTATUS_SPVP | HSTATUS_SPV | HSTATUS_GVA;
