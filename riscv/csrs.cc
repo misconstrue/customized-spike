@@ -431,7 +431,7 @@ reg_t cause_csr_t::read() const noexcept {
 // implement class base_status_csr_t
 base_status_csr_t::base_status_csr_t(processor_t* const proc, const reg_t addr):
   csr_t(proc, addr),
-  has_page(proc->extension_enabled_const('S') && proc->supports_impl(IMPL_MMU)),
+  has_page(proc->extension_enabled_const('S') && proc->has_mmu()),
   sstatus_write_mask(compute_sstatus_write_mask()),
   sstatus_read_mask(sstatus_write_mask | SSTATUS_UBE | SSTATUS_UXL
                     | (proc->get_const_xlen() == 32 ? SSTATUS32_SD : SSTATUS64_SD)) {
@@ -449,7 +449,7 @@ reg_t base_status_csr_t::compute_sstatus_write_mask() const noexcept {
     | (has_fs ? SSTATUS_FS : 0)
     | (proc->any_custom_extensions() ? SSTATUS_XS : 0)
     | (has_vs ? SSTATUS_VS : 0)
-    | (proc->extension_enabled(EXT_ZICFILP) ? SSTATUS_SPELP : 0)
+    | (proc->extension_enabled('S') && proc->extension_enabled(EXT_ZICFILP) ? SSTATUS_SPELP : 0)
     | (proc->extension_enabled(EXT_SSDBLTRP) ? SSTATUS_SDT : 0)
     ;
 }
@@ -544,11 +544,16 @@ mstatus_csr_t::mstatus_csr_t(processor_t* const proc, const reg_t addr):
   val(compute_mstatus_initial_value()) {
 }
 
+reg_t mstatus_csr_t::read() const noexcept {
+  return val & ~reg_t(state->menvcfg->read() & MENVCFG_DTE ? 0 : MSTATUS_SDT);
+}
+
 bool mstatus_csr_t::unlogged_write(const reg_t val) noexcept {
   const bool has_mpv = proc->extension_enabled('H');
   const bool has_gva = has_mpv;
+  const reg_t adj_write_mask = sstatus_write_mask & ~reg_t(state->menvcfg->read() & MENVCFG_DTE ? 0 : SSTATUS_SDT);
 
-  const reg_t mask = sstatus_write_mask
+  const reg_t mask = adj_write_mask
                    | MSTATUS_MIE | MSTATUS_MPIE
                    | (proc->extension_enabled('U') ? MSTATUS_MPRV : 0)
                    | MSTATUS_MPP | MSTATUS_TW
@@ -557,13 +562,12 @@ bool mstatus_csr_t::unlogged_write(const reg_t val) noexcept {
                    | (has_gva ? MSTATUS_GVA : 0)
                    | (has_mpv ? MSTATUS_MPV : 0)
                    | (proc->extension_enabled(EXT_SMDBLTRP) ? MSTATUS_MDT : 0)
-                   | (proc->extension_enabled(EXT_ZICFILP) ? (MSTATUS_SPELP | MSTATUS_MPELP) : 0)
-                   | (proc->extension_enabled(EXT_SSDBLTRP) ? SSTATUS_SDT : 0)
+                   | (proc->extension_enabled(EXT_ZICFILP) ? (MSTATUS_MPELP | (proc->extension_enabled('S') ? MSTATUS_SPELP : 0)) : 0)
                    ;
 
   const reg_t requested_mpp = proc->legalize_privilege(get_field(val, MSTATUS_MPP));
   const reg_t adjusted_val = set_field(val, MSTATUS_MPP, requested_mpp);
-  reg_t new_mstatus = (read() & ~mask) | (adjusted_val & mask);
+  reg_t new_mstatus = (this->val & ~mask) | (adjusted_val & mask);
   new_mstatus = (new_mstatus & MSTATUS_MDT) ? (new_mstatus & ~MSTATUS_MIE) : new_mstatus;
   new_mstatus = (new_mstatus & MSTATUS_SDT) ? (new_mstatus & ~MSTATUS_SIE) : new_mstatus;
   maybe_flush_tlb(new_mstatus);
@@ -732,6 +736,7 @@ bool misa_csr_t::unlogged_write(const reg_t val) noexcept {
   const bool prev_h = old_misa & (1L << ('H' - 'A'));
   const reg_t new_misa = (adjusted_val & write_mask) | (old_misa & ~write_mask);
   const bool new_h = new_misa & (1L << ('H' - 'A'));
+  const bool new_v = proc->get_isa().has_any_vector();
 
   proc->set_extension_enable(EXT_ZCA, (new_misa & (1L << ('C' - 'A'))) || !proc->get_isa().extension_enabled('C'));
   proc->set_extension_enable(EXT_ZCF, (new_misa & (1L << ('F' - 'A'))) && proc->extension_enabled(EXT_ZCA) && proc->get_xlen() == 32);
@@ -741,8 +746,8 @@ bool misa_csr_t::unlogged_write(const reg_t val) noexcept {
   proc->set_extension_enable(EXT_ZCMT, proc->extension_enabled(EXT_ZCA));
   proc->set_extension_enable(EXT_ZFH, new_misa & (1L << ('F' - 'A')));
   proc->set_extension_enable(EXT_ZFHMIN, new_misa & (1L << ('F' - 'A')));
-  proc->set_extension_enable(EXT_ZVFH, (new_misa & (1L << ('V' - 'A'))) && proc->extension_enabled(EXT_ZFHMIN));
-  proc->set_extension_enable(EXT_ZVFHMIN, new_misa & (1L << ('V' - 'A')));
+  proc->set_extension_enable(EXT_ZVFH, new_v && proc->get_isa().get_zvf() && proc->extension_enabled(EXT_ZFHMIN));
+  proc->set_extension_enable(EXT_ZVFHMIN, new_v && proc->get_isa().get_zvf());
   proc->set_extension_enable(EXT_ZAAMO, (new_misa & (1L << ('A' - 'A'))) || !proc->get_isa().extension_enabled('A'));
   proc->set_extension_enable(EXT_ZALRSC, (new_misa & (1L << ('A' - 'A'))) || !proc->get_isa().extension_enabled('A'));
   proc->set_extension_enable(EXT_ZBA, (new_misa & (1L << ('B' - 'A'))) || !proc->get_isa().extension_enabled('B'));
@@ -774,6 +779,7 @@ bool misa_csr_t::unlogged_write(const reg_t val) noexcept {
   }
 
   proc->get_mmu()->flush_tlb();
+  proc->build_opcode_map();
 
   return basic_csr_t::unlogged_write(new_misa);
 }
@@ -999,7 +1005,7 @@ bool medeleg_csr_t::unlogged_write(const reg_t val) noexcept {
     | (1 << CAUSE_STORE_ACCESS)
     | (1 << CAUSE_USER_ECALL)
     | (1 << CAUSE_SUPERVISOR_ECALL)
-    | (proc->supports_impl(IMPL_MMU) ? mmu_exceptions : 0)
+    | (proc->has_mmu() ? mmu_exceptions : 0)
     | (proc->extension_enabled('H') ? hypervisor_exceptions : 0)
     | (1 << CAUSE_SOFTWARE_CHECK_FAULT)
     | (1 << CAUSE_HARDWARE_ERROR_FAULT)
@@ -1082,7 +1088,7 @@ base_atp_csr_t::base_atp_csr_t(processor_t* const proc, const reg_t addr):
 }
 
 bool base_atp_csr_t::unlogged_write(const reg_t val) noexcept {
-  const reg_t newval = proc->supports_impl(IMPL_MMU) ? compute_new_satp(val) : 0;
+  const reg_t newval = proc->has_mmu() ? compute_new_satp(val) : 0;
   if (newval != read())
     proc->get_mmu()->flush_tlb();
   return basic_csr_t::unlogged_write(newval);
@@ -1091,16 +1097,16 @@ bool base_atp_csr_t::unlogged_write(const reg_t val) noexcept {
 bool base_atp_csr_t::satp_valid(reg_t val) const noexcept {
   if (proc->get_xlen() == 32) {
     switch (get_field(val, SATP32_MODE)) {
-      case SATP_MODE_SV32: return proc->supports_impl(IMPL_MMU_SV32);
       case SATP_MODE_OFF: return true;
+      case SATP_MODE_SV32: return proc->get_max_vaddr_bits() >= 32;
       default: return false;
     }
   } else {
     switch (get_field(val, SATP64_MODE)) {
-      case SATP_MODE_SV39: return proc->supports_impl(IMPL_MMU_SV39);
-      case SATP_MODE_SV48: return proc->supports_impl(IMPL_MMU_SV48);
-      case SATP_MODE_SV57: return proc->supports_impl(IMPL_MMU_SV57);
       case SATP_MODE_OFF: return true;
+      case SATP_MODE_SV39: return proc->get_max_vaddr_bits() >= 39;
+      case SATP_MODE_SV48: return proc->get_max_vaddr_bits() >= 48;
+      case SATP_MODE_SV57: return proc->get_max_vaddr_bits() >= 57;
       default: return false;
     }
   }
@@ -1339,9 +1345,9 @@ bool hgatp_csr_t::unlogged_write(const reg_t val) noexcept {
         (proc->supports_impl(IMPL_MMU_VMID) ? HGATP64_VMID : 0);
 
     if (get_field(val, HGATP64_MODE) == HGATP_MODE_OFF ||
-        (proc->supports_impl(IMPL_MMU_SV39) && get_field(val, HGATP64_MODE) == HGATP_MODE_SV39X4) ||
-        (proc->supports_impl(IMPL_MMU_SV48) && get_field(val, HGATP64_MODE) == HGATP_MODE_SV48X4) ||
-        (proc->supports_impl(IMPL_MMU_SV57) && get_field(val, HGATP64_MODE) == HGATP_MODE_SV57X4))
+        (proc->get_max_vaddr_bits() >= 39 && get_field(val, HGATP64_MODE) == HGATP_MODE_SV39X4) ||
+        (proc->get_max_vaddr_bits() >= 48 && get_field(val, HGATP64_MODE) == HGATP_MODE_SV48X4) ||
+        (proc->get_max_vaddr_bits() >= 57 && get_field(val, HGATP64_MODE) == HGATP_MODE_SV57X4))
       mask |= HGATP64_MODE;
   }
   mask &= ~(reg_t)3;
@@ -2031,7 +2037,7 @@ hstatus_csr_t::hstatus_csr_t(processor_t* const proc, const reg_t addr):
 bool hstatus_csr_t::unlogged_write(const reg_t val) noexcept {
   const reg_t mask = (proc->extension_enabled(EXT_SVUKTE) ? HSTATUS_HUKTE  : 0)
     | HSTATUS_VTSR | HSTATUS_VTW
-    | (proc->supports_impl(IMPL_MMU) ? HSTATUS_VTVM : 0)
+    | (proc->has_mmu() ? HSTATUS_VTVM : 0)
     | (proc->extension_enabled(EXT_SSNPM) ? HSTATUS_HUPMM : 0)
     | HSTATUS_HU | HSTATUS_SPVP | HSTATUS_SPV | HSTATUS_GVA;
 
